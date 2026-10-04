@@ -1,0 +1,19 @@
+spring:
+  application:
+    name: youtube-service
+  batch:
+    job:
+      enabled: false
+    jdbc:
+      initialize-schema: always
+server:
+  port: 8081
+
+toolbox:
+  youtube:
+    storage-directory: .data/youtube
+    js-runtime: deno
+    ejs-remote-components: ejs:github
+    playlist-download-attempts: 3
+    playlist-retry-delay-millis: 1000
+

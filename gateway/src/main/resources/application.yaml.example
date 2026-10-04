@@ -1,0 +1,17 @@
+spring:
+  application:
+    name: atalaya-toolbox-gateway
+
+server:
+  port: 8080
+
+springdoc:
+  swagger-ui:
+    url: /gateway/openapi.json
+
+toolbox:
+  gateway:
+    services:
+      youtube:
+        base-url: ${YOUTUBE_SERVICE_URL:http://localhost:8081}
+        openapi-path: /v3/api-docs

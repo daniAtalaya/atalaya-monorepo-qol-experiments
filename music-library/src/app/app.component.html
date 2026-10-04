@@ -1,0 +1,480 @@
+<div class="app-shell" [attr.data-theme]="selectedThemeId()"
+  [attr.data-backdrop]="activeTheme()?.backdrop || 'aurora'" [ngStyle]="themeCssProperties()">
+  <section *ngIf="!activeUsername()" class="user-gate" role="dialog" aria-modal="true" aria-labelledby="user-gate-title">
+    <form class="user-gate-card" (submit)="submitMusicPlayerUser($event)">
+      <span class="user-gate-mark" aria-hidden="true">A</span>
+      <p class="eyebrow">YOUR PERSONAL LISTENING SPACE</p>
+      <h1 id="user-gate-title">{{ userLoading() ? 'Welcome back' : 'Who is listening?' }}</h1>
+      <p class="user-gate-copy">
+        {{ userLoading() ? 'Loading saved profiles…' : 'Choose a username to keep your themes and listening history yours.' }}
+      </p>
+      <ng-container *ngIf="!userLoading()">
+        <div class="user-mode-switch" *ngIf="knownUsers().length">
+          <button type="button" [class.active]="userMode() === 'existing'" (click)="setUserMode('existing')">Choose profile</button>
+          <button type="button" [class.active]="userMode() === 'new'" (click)="setUserMode('new')">New profile</button>
+        </div>
+        <label *ngIf="knownUsers().length && userMode() === 'existing'" class="user-gate-label">
+          Username
+          <select [value]="selectedLoginUsername()" (change)="onLoginUsernameChange($event)">
+            <option *ngFor="let user of knownUsers()" [value]="user.username">{{ user.username }}</option>
+          </select>
+        </label>
+        <label *ngIf="!knownUsers().length || userMode() === 'new'" class="user-gate-label">
+          Create a username
+          <input name="username" autocomplete="username" maxlength="32" pattern="[A-Za-z0-9][A-Za-z0-9_\-]{0,31}"
+            required placeholder="e.g. alex" [value]="loginUsername()" (input)="onNewUsernameChange($event)">
+          <span class="user-name-hint">1–32 letters, numbers, underscores, or hyphens.</span>
+        </label>
+        <p *ngIf="userError()" class="user-gate-error" role="alert">{{ userError() }}</p>
+        <button class="user-gate-submit" type="submit" [disabled]="userBusy() || (!knownUsers().length && userLoading())">
+          {{ userBusy() ? 'Opening profile…' : (knownUsers().length && userMode() === 'existing' ? 'Continue as ' + selectedLoginUsername() : 'Create profile') }}
+          <span aria-hidden="true">→</span>
+        </button>
+        <p class="user-gate-note">Username only. No passwords, accounts, or sign-in service.</p>
+      </ng-container>
+    </form>
+  </section>
+
+  <ng-container *ngIf="activeUsername()">
+  <header class="topbar">
+    <a class="wordmark" href="/" aria-label="Atalaya Music home">
+      <span class="wordmark-mark">A</span>
+      <span>ATALAYA<small>MUSIC LIBRARY</small></span>
+    </a>
+    <nav class="workspace-tabs" aria-label="Workspace">
+      <button type="button" role="tab" (click)="selectTab('library')"
+        [attr.aria-selected]="activeTab() === 'library'" [class.active]="activeTab() === 'library'">
+        Music library
+      </button>
+      <button type="button" role="tab" (click)="selectTab('most-played')"
+        [attr.aria-selected]="activeTab() === 'most-played'" [class.active]="activeTab() === 'most-played'">
+        Most played
+      </button>
+      <button type="button" role="tab" (click)="selectTab('service')"
+        [attr.aria-selected]="activeTab() === 'service'" [class.active]="activeTab() === 'service'">
+        YouTube service
+      </button>
+    </nav>
+    <div class="theme-control">
+      <button class="theme-trigger" type="button" (click)="toggleThemeChooser()"
+        [attr.aria-expanded]="themeChooserOpen()" aria-controls="theme-chooser">
+        <span class="theme-trigger-icon" aria-hidden="true">◐</span>
+        Appearance
+        <span class="theme-trigger-name">{{ selectedThemeName() }}</span>
+      </button>
+      <section *ngIf="themeChooserOpen()" id="theme-chooser" class="theme-chooser"
+        aria-label="Choose a music player theme">
+        <div class="theme-chooser-heading">
+          <div><span class="eyebrow">MAKE IT YOURS</span><h2>Choose a mood</h2></div>
+          <button class="theme-chooser-close" type="button" (click)="toggleThemeChooser()" aria-label="Close theme chooser">×</button>
+        </div>
+        <button *ngFor="let theme of availableThemes()" type="button" class="theme-option"
+          [class.selected]="theme.id === selectedThemeId()" [disabled]="themeBusy()"
+          (click)="chooseTheme(theme.id)" [attr.aria-pressed]="theme.id === selectedThemeId()">
+          <span class="theme-swatches" aria-hidden="true">
+            <span *ngFor="let swatch of themeSwatches(theme)" [style.background-color]="swatch"></span>
+          </span>
+          <span class="theme-option-copy">
+            <strong>{{ theme.name }}</strong>
+            <span>{{ theme.description }}</span>
+          </span>
+          <span class="theme-option-check" aria-hidden="true">{{ theme.id === selectedThemeId() ? '✓' : '' }}</span>
+        </button>
+        <p class="theme-status" aria-live="polite">{{ themeStatus() || 'Your choice is saved for next time.' }}</p>
+      </section>
+    </div>
+    <div class="active-user">
+      <span class="user-avatar" aria-hidden="true">{{ activeUsername().slice(0, 1).toUpperCase() }}</span>
+      <span class="active-user-name">{{ activeUsername() }}</span>
+      <button type="button" (click)="logoutMusicPlayerUser()" aria-label="Log out and switch user">Log out</button>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <div class="library-column" [hidden]="activeTab() !== 'library'">
+      <section class="hero">
+        <div>
+          <p class="eyebrow">YOUR MUSIC, CLOSE AT HAND</p>
+          <h1>A quieter kind<br>of <span>playlist.</span></h1>
+          <p class="hero-copy">Browse your collection, settle in, and let the next track find you.</p>
+        </div>
+        <div class="hero-art" aria-hidden="true">
+          <span class="art-orbit orbit-one"></span>
+          <span class="art-orbit orbit-two"></span>
+          <span class="art-disc"><span></span></span>
+        </div>
+      </section>
+
+      <section class="library-section" aria-labelledby="library-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">THE COLLECTION</p>
+            <h2 id="library-title">Your library</h2>
+          </div>
+          <div class="library-actions">
+            <label class="depth-select">
+              <span>Folder shuffle depth</span>
+              <select [value]="shuffleDepth()" (change)="onShuffleDepthChange($event)"
+                aria-label="Folder shuffle depth">
+                <option [value]="0">This folder</option>
+                <option [value]="1">1 level down</option>
+                <option [value]="2">2 levels down</option>
+                <option [value]="3">3 levels down</option>
+                <option [value]="5">5 levels down</option>
+                <option [value]="8">8 levels down</option>
+              </select>
+            </label>
+            <button class="button button-shuffle" type="button" (click)="startShuffle()">
+              <span aria-hidden="true">⤨</span> Shuffle library
+            </button>
+            <button class="icon-button" type="button" (click)="loadLibrary()" aria-label="Refresh music library">↻</button>
+          </div>
+        </div>
+
+        <p *ngIf="errorMessage()" class="notice notice-error" role="alert">{{ errorMessage() }}</p>
+        <p *ngIf="shuffleMessage()" class="notice notice-shuffle" aria-live="polite">{{ shuffleMessage() }}</p>
+        <p *ngIf="loading()" class="empty-state">Finding your records…</p>
+        <p *ngIf="!loading() && emptyMessage()" class="empty-state">{{ emptyMessage() }}</p>
+
+        <ul *ngIf="!loading() && library().length" class="music-tree">
+          <ng-container *ngTemplateOutlet="nodeList; context: { $implicit: library() }"></ng-container>
+        </ul>
+      </section>
+    </div>
+
+    <section *ngIf="activeTab() === 'most-played'" class="ranking-page" aria-labelledby="ranking-title">
+      <div class="ranking-heading">
+        <div>
+          <p class="eyebrow">YOUR LISTENING HISTORY</p>
+          <h1 id="ranking-title">Most played</h1>
+          <p>Every new playback is counted once. Pausing and resuming doesn’t add another listen.</p>
+        </div>
+        <button class="icon-button" type="button" (click)="loadListenRanking()" aria-label="Refresh most played">↻</button>
+      </div>
+      <p *ngIf="rankingError()" class="notice notice-error" role="alert">{{ rankingError() }}</p>
+      <p *ngIf="rankingLoading()" class="empty-state">Loading your listening history…</p>
+      <p *ngIf="!rankingLoading() && !rankingError() && listenRanking().length === 0" class="empty-state">
+        Play a track to start building your most-played list.
+      </p>
+      <ol *ngIf="!rankingLoading() && listenRanking().length" class="ranking-list">
+        <li *ngFor="let track of listenRanking(); let rank = index" class="ranking-row">
+          <span class="ranking-position">{{ (rank + 1).toString().padStart(2, '0') }}</span>
+          <button class="ranking-track" type="button" (click)="playRankedTrack(track)">
+            <span class="track-disc" aria-hidden="true">♪</span>
+            <span class="track-copy">
+              <strong>{{ track.name }}</strong>
+              <span>{{ track.path }}</span>
+            </span>
+          </button>
+          <span class="listen-count">{{ track.listenCount }} {{ track.listenCount === 1 ? 'listen' : 'listens' }}</span>
+        </li>
+      </ol>
+    </section>
+
+    <section [hidden]="activeTab() !== 'service'" id="service-tools" class="service-tools" aria-labelledby="service-tools-title">
+      <div class="tools-heading">
+        <div>
+          <p class="eyebrow">YOUTUBE SERVICE</p>
+          <h2 id="service-tools-title">Service toolbox</h2>
+          <p class="tools-description">Run service actions and change YouTube service settings; the player stays available.</p>
+        </div>
+        <div class="tools-heading-actions">
+          <a class="api-doc-link" href="/swagger-ui/index.html" target="_blank" rel="noreferrer">API docs ↗</a>
+        </div>
+      </div>
+
+      <section class="theme-studio" aria-labelledby="theme-studio-title">
+        <div class="theme-studio-heading">
+          <div>
+            <span class="card-index">PERSONALIZE YOUR PLAYER</span>
+            <h3 id="theme-studio-title">Appearance studio</h3>
+            <p>Create and tune your palette, backdrop, and sound visualizer. API: GET/POST this catalog, PUT or DELETE a theme ID, and PUT /selection.</p>
+          </div>
+          <button class="action-button theme-create" type="button" (click)="beginCreateTheme()" [disabled]="themeBusy()">
+            New theme <span>＋</span>
+          </button>
+        </div>
+        <div class="theme-library">
+          <article *ngFor="let theme of availableThemes()" class="theme-management-card"
+            [class.is-active]="theme.id === selectedThemeId()">
+            <span class="theme-management-swatches" aria-hidden="true">
+              <span *ngFor="let swatch of themeSwatches(theme)" [style.background-color]="swatch"></span>
+            </span>
+            <div class="theme-management-copy">
+              <strong>{{ theme.name }}</strong>
+              <span>{{ theme.description }}</span>
+              <small>{{ theme.visualizerStyle }} visualizer · {{ theme.backdrop }} backdrop</small>
+            </div>
+            <div class="theme-management-actions">
+              <button type="button" class="theme-small-button" (click)="chooseTheme(theme.id)"
+                [disabled]="themeBusy() || theme.id === selectedThemeId()">
+                {{ theme.id === selectedThemeId() ? 'Active' : 'Use' }}
+              </button>
+              <button type="button" class="theme-small-button" (click)="beginEditTheme(theme)" [disabled]="themeBusy()">Edit</button>
+              <button type="button" class="theme-small-button theme-delete-button" (click)="deleteTheme(theme)" [disabled]="themeBusy()">
+                Delete
+              </button>
+            </div>
+          </article>
+        </div>
+        <form *ngIf="themeEditor() as draft" class="theme-editor" (submit)="saveTheme($event)">
+          <div class="theme-editor-heading">
+            <div><span class="card-index">{{ editingThemeId() ? 'EDITING THEME' : 'NEW THEME' }}</span>
+              <h4>{{ editingThemeId() ? 'Refine your palette' : 'Create a listening mood' }}</h4></div>
+            <button type="button" class="theme-small-button" (click)="cancelThemeEdit()">Cancel</button>
+          </div>
+          <div class="theme-editor-grid">
+            <label class="theme-text-field">Theme name
+              <input name="name" required maxlength="48" [value]="draft.name">
+            </label>
+            <label class="theme-text-field">Short description
+              <input name="description" required maxlength="180" [value]="draft.description">
+            </label>
+          </div>
+          <div class="theme-editor-subheading">Interface palette</div>
+          <div class="theme-color-grid">
+            <label>Page background<input name="background" type="color" [value]="draft.background"></label>
+            <label>Surface<input name="surface" type="color" [value]="draft.surface"></label>
+            <label>Text<input name="text" type="color" [value]="draft.text"></label>
+            <label>Secondary text<input name="muted" type="color" [value]="draft.muted"></label>
+            <label>Accent<input name="accent" type="color" [value]="draft.accent"></label>
+            <label>Borders<input name="line" type="color" [value]="draft.line"></label>
+          </div>
+          <div class="theme-editor-subheading">Atmosphere & visualizer</div>
+          <div class="theme-editor-grid theme-visualizer-settings">
+            <label>Color mode<select name="mode" [value]="draft.mode"><option value="dark">Dark</option><option value="light">Light</option></select></label>
+            <label>Backdrop<select name="backdrop" [value]="draft.backdrop"><option value="aurora">Aurora</option><option value="halo">Halo</option><option value="plain">Quiet</option></select></label>
+            <label>Visualizer style<select name="visualizerStyle" [value]="draft.visualizerStyle"><option value="bars">Spectrum bars</option><option value="mirror">Mirrored bars</option><option value="wave">Waveform</option></select></label>
+            <label>Bar count<input name="visualizerBarCount" type="number" min="12" max="96" step="1" required [value]="draft.visualizerBarCount"></label>
+            <label>Sensitivity<input name="visualizerSensitivity" type="number" min="0.25" max="2" step="0.05" required [value]="draft.visualizerSensitivity"></label>
+          </div>
+          <div class="theme-color-grid visualizer-color-grid">
+            <label>Visualizer color 1<input name="visualizerColor1" type="color" [value]="draft.visualizerPalette[0]"></label>
+            <label>Visualizer color 2<input name="visualizerColor2" type="color" [value]="draft.visualizerPalette[1]"></label>
+            <label>Visualizer color 3<input name="visualizerColor3" type="color" [value]="draft.visualizerPalette[2]"></label>
+          </div>
+          <div class="theme-editor-footer">
+            <span class="theme-status" aria-live="polite">{{ themeStatus() }}</span>
+            <button class="action-button theme-save-button" type="submit" [disabled]="themeBusy()">
+              {{ themeBusy() ? 'Saving…' : (editingThemeId() ? 'Save changes' : 'Create theme') }} <span>↗</span>
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <form *ngIf="youtubeSettings() as settings" class="settings-card" (submit)="saveYoutubeSettings($event)">
+        <div class="settings-heading">
+          <div>
+            <span class="card-index">SERVICE CONFIGURATION</span>
+            <h3>YouTube parameters</h3>
+            <p>Saved settings are restored when the service starts. Batch infrastructure changes require a service restart.</p>
+          </div>
+          <span class="response-status" aria-live="polite">{{ settingsStatus() }}</span>
+        </div>
+        <div class="settings-grid">
+          <label>Storage directory
+            <input name="storageDirectory" required [value]="settings.storageDirectory">
+          </label>
+          <label>JavaScript runtime
+            <input name="jsRuntime" required [value]="settings.jsRuntime">
+          </label>
+          <label>EJS remote components
+            <input name="ejsRemoteComponents" required [value]="settings.ejsRemoteComponents">
+          </label>
+          <label>Playlist download attempts
+            <input name="playlistDownloadAttempts" type="number" min="1" step="1" required [value]="settings.playlistDownloadAttempts">
+          </label>
+          <label>Playlist retry delay (ms)
+            <input name="playlistRetryDelayMillis" type="number" min="0" step="1" required [value]="settings.playlistRetryDelayMillis">
+          </label>
+        </div>
+        <button class="action-button settings-save" type="submit" [disabled]="settingsBusy()">
+          {{ settingsBusy() ? 'Saving…' : 'Save settings' }} <span>↗</span>
+        </button>
+      </form>
+      <p *ngIf="!youtubeSettings()" class="settings-load-status" role="status">{{ settingsStatus() }}</p>
+
+      <div class="api-grid">
+        <form class="api-card" (submit)="invokeApi($event, 'POST', 'download', 'json')">
+          <span class="card-index">01 / VIDEO</span>
+          <h3>Download a video</h3>
+          <label>YouTube URL<input name="url" type="url" required placeholder="https://youtube.com/watch?v=…"></label>
+          <label>Destination folder <span class="optional">(optional)</span><input name="destination" placeholder="artist/album"></label>
+          <button class="action-button" type="submit" [disabled]="apiBusy()">Download audio <span>↗</span></button>
+        </form>
+
+        <form class="api-card" (submit)="invokeApi($event, 'GET', 'history/list', 'none', ['dateOrder', 'downloadTimeOrder'])">
+          <span class="card-index">02 / HISTORY</span>
+          <h3>Download history</h3>
+          <label>Date order<select name="dateOrder"><option value="">Default</option><option value="asc">Oldest first</option><option value="desc">Newest first</option></select></label>
+          <label>Download-time order<select name="downloadTimeOrder"><option value="">Default</option><option value="asc">Shortest first</option><option value="desc">Longest first</option></select></label>
+          <button class="action-button" type="submit" [disabled]="apiBusy()">View history <span>↗</span></button>
+        </form>
+
+        <form class="api-card" (submit)="invokeApi($event, 'GET', 'playlist/status')">
+          <span class="card-index">03 / PLAYLISTS</span>
+          <h3>Playlist overview</h3>
+          <p>See prepared playlists and their pending track counts.</p>
+          <button class="action-button" type="submit" [disabled]="apiBusy()">Check status <span>↗</span></button>
+        </form>
+
+        <form class="api-card" (submit)="invokeApi($event, 'POST', 'history/reconcile-missing')">
+          <span class="card-index">04 / LIBRARY HEALTH</span>
+          <h3>Reconcile missing files</h3>
+          <p>Find download-history entries whose MP3 files are missing.</p>
+          <button class="action-button" type="submit" [disabled]="apiBusy()">Reconcile history <span>↗</span></button>
+        </form>
+
+        <form class="api-card" (submit)="invokeApi($event, 'GET', 'history/metadata-inaccessible')">
+          <span class="card-index">05 / METADATA</span>
+          <h3>Inaccessible metadata</h3>
+          <p>Review videos for which playlist metadata could not be fetched.</p>
+          <button class="action-button" type="submit" [disabled]="apiBusy()">View unavailable items <span>↗</span></button>
+        </form>
+
+        <form class="api-card" (submit)="invokeApi($event, 'POST', 'playlist/prepare', 'json')">
+          <span class="card-index">06 / PLAYLISTS</span>
+          <h3>Prepare a playlist</h3>
+          <label>Playlist URL<input name="url" type="url" required placeholder="https://youtube.com/playlist?list=…"></label>
+          <label>Destination folder <span class="optional">(optional)</span><input name="destination" placeholder="artist/album"></label>
+          <button class="action-button" type="submit" [disabled]="apiBusy()">Fetch playlist details <span>↗</span></button>
+        </form>
+
+        <form class="api-card" (submit)="invokeApi($event, 'GET', 'playlist/prepare/status', 'none', ['playlistId'])">
+          <span class="card-index">07 / PLAYLISTS</span>
+          <h3>Preparation status</h3>
+          <label>Playlist ID<input name="playlistId" required placeholder="Playlist ID"></label>
+          <button class="action-button" type="submit" [disabled]="apiBusy()">Check preparation <span>↗</span></button>
+        </form>
+
+        <form class="api-card" (submit)="invokeApi($event, 'POST', 'playlist/process', 'none', ['playlistId'])">
+          <span class="card-index">08 / DOWNLOAD QUEUE</span>
+          <h3>Process prepared tracks</h3>
+          <label>Playlist ID <span class="optional">(optional; blank processes all)</span><input name="playlistId" placeholder="Playlist ID"></label>
+          <button class="action-button" type="submit" [disabled]="apiBusy()">Start processing <span>↗</span></button>
+        </form>
+      </div>
+
+      <div class="api-response">
+        <div class="response-title">
+          <div><span class="eyebrow">LATEST RESULT</span><h3>Service response</h3></div>
+          <span class="response-status" aria-live="polite">{{ apiResponseStatus() }}</span>
+        </div>
+        <ng-container *ngIf="inaccessibleMetadata() as metadata; else plainApiResponse">
+          <div class="metadata-response" aria-live="polite">
+            <div class="metadata-actions">
+              <span>{{ metadata.length }} unavailable video{{ metadata.length === 1 ? '' : 's' }}</span>
+              <button type="button" class="metadata-clear" (click)="clearInaccessibleMetadata()"
+                [disabled]="metadataMutationBusy() || metadata.length === 0">
+                Clear all
+              </button>
+            </div>
+            <p *ngIf="metadata.length === 0" class="metadata-empty">No inaccessible metadata entries.</p>
+            <article *ngFor="let entry of metadata" class="metadata-entry">
+              <div class="metadata-entry-copy">
+                <strong>{{ entry.videoId }}</strong>
+                <span>{{ entry.latestReason }} · {{ entry.observations }} observation{{ entry.observations === 1 ? '' : 's' }}</span>
+                <a *ngFor="let url of entry.sourceUrls" [href]="url" target="_blank" rel="noreferrer">{{ url }}</a>
+              </div>
+              <button type="button" class="metadata-delete" (click)="deleteInaccessibleMetadata(entry.videoId)"
+                [disabled]="metadataMutationBusy()" [attr.aria-label]="'Delete ' + entry.videoId"
+                [title]="'Delete ' + entry.videoId">−</button>
+            </article>
+          </div>
+        </ng-container>
+        <ng-template #plainApiResponse><pre aria-live="polite">{{ apiResponse() }}</pre></ng-template>
+      </div>
+    </section>
+  </main>
+  </ng-container>
+
+  <ng-template #nodeList let-nodes>
+    <ng-container *ngFor="let node of nodes; trackBy: trackByPath">
+      <li *ngIf="node.directory" class="tree-folder">
+        <details (toggle)="onFolderToggle(node, $event)">
+          <summary>
+            <span class="folder-glyph" aria-hidden="true">▸</span>
+            <span class="folder-name">{{ node.name }}</span>
+            <span class="folder-path">{{ node.path }}</span>
+            <button
+              class="folder-shuffle"
+              type="button"
+              (click)="startShuffle(node.path); $event.preventDefault(); $event.stopPropagation()">
+              Shuffle folder
+            </button>
+          </summary>
+          <ul class="music-tree nested-tree" *ngIf="folderChildren(node.path) as children">
+            <ng-container *ngTemplateOutlet="nodeList; context: { $implicit: children }"></ng-container>
+            <li *ngIf="children.length === 0" class="empty-folder">No MP3 tracks in this folder.</li>
+          </ul>
+          <p *ngIf="folderIsLoading(node.path)" class="folder-loading">Loading folder…</p>
+        </details>
+      </li>
+      <li *ngIf="!node.directory" class="track-row" [class.is-current]="nowPlaying()?.path === node.path">
+        <button class="track-main" type="button" (click)="toggleTrack(node)" [attr.aria-label]="
+          nowPlaying()?.path === node.path
+            ? (isPlaying() ? 'Pause ' : 'Resume ') + node.name
+            : 'Play ' + node.name">
+          <span class="track-disc" aria-hidden="true">{{ nowPlaying()?.path === node.path && isPlaying() ? '♫' : '♪' }}</span>
+          <span class="track-copy">
+            <span class="track-name">{{ node.name }}</span>
+            <span class="track-meta">{{ node.path }} <span>·</span> {{ formatSize(node.sizeBytes) }}</span>
+          </span>
+        </button>
+      </li>
+    </ng-container>
+  </ng-template>
+
+  <footer class="player-dock" aria-label="Audio player">
+    <button class="player-now-playing" type="button" (click)="toggleVisualizer()"
+      [attr.aria-label]="visualizerOpen() ? 'Close audio visualizer' : 'Open audio visualizer'">
+      <span class="player-art" aria-hidden="true">♫</span>
+      <span class="player-track">
+        <span class="eyebrow">NOW PLAYING · OPEN VISUALIZER</span>
+        <strong>{{ nowPlaying()?.name || 'Pick something you love' }}</strong>
+        <span>{{ nowPlaying()?.path || 'Your player stays with you as you browse.' }}</span>
+      </span>
+    </button>
+    <div class="player-controls">
+      <button type="button" (click)="playPreviousTrack()" [disabled]="!nowPlaying()" aria-label="Previous track">|◀</button>
+      <button type="button" (click)="playNextTrack()" [disabled]="!nowPlaying()" aria-label="Next track">▶|</button>
+    </div>
+    <audio #player controls preload="none" (ended)="onPlaybackEnded()" (play)="onPlaybackStateChange()"
+      (pause)="onPlaybackStateChange()" (timeupdate)="onPlaybackTimeUpdate()"
+      (loadedmetadata)="onPlaybackTimeUpdate()" (volumechange)="saveVolume()"></audio>
+    <button *ngIf="shuffleAvailable()" class="player-note" type="button" (click)="toggleShuffle()"
+      [class.shuffle-enabled]="shuffleMode() !== 'off'"
+      [attr.aria-label]="shuffleMode() === 'off' ? 'Restore shuffle' : 'Turn off shuffle and restore folder order'"
+      [title]="shuffleMode() === 'off' ? 'Restore shuffle' : 'Turn off shuffle and restore folder order'">
+      SHUFFLE {{ shuffleMode() === 'off' ? 'OFF' : 'ON' }}
+      <span aria-hidden="true">{{ shuffleMode() === 'off' ? '↻' : '⤨' }}</span>
+    </button>
+  </footer>
+
+  <section *ngIf="visualizerOpen()" class="visualizer" aria-label="Audio visualizer">
+    <canvas #visualizerCanvas aria-hidden="true"></canvas>
+    <div class="visualizer-vignette"></div>
+    <div #visualizerTitle class="visualizer-title">
+      <span class="eyebrow">NOW PLAYING</span>
+      <strong>{{ nowPlaying()?.name || 'Atalaya audio visualizer' }}</strong>
+      <span class="visualizer-track-path">{{ nowPlaying()?.path || 'Choose a track to begin.' }}</span>
+      <span>{{ isPlaying() ? 'Waves are following the music' : 'Press play and watch the sound move' }}</span>
+    </div>
+    <div #visualizerControls class="visualizer-player" aria-label="Now playing controls">
+      <button type="button" (click)="playPreviousTrack()" [disabled]="!nowPlaying()" aria-label="Previous track">|◀</button>
+      <button class="visualizer-play" type="button" (click)="toggleCurrentTrack()" [disabled]="!nowPlaying()"
+        [attr.aria-label]="isPlaying() ? 'Pause' : 'Play'">{{ isPlaying() ? 'Ⅱ' : '▶' }}</button>
+      <button type="button" (click)="playNextTrack()" [disabled]="!nowPlaying()" aria-label="Next track">▶|</button>
+      <button *ngIf="shuffleAvailable()" type="button" class="visualizer-shuffle"
+        (click)="toggleShuffle()" [class.shuffle-enabled]="shuffleMode() !== 'off'">
+        Shuffle {{ shuffleMode() === 'off' ? 'off' : 'on' }}
+      </button>
+      <button type="button" (click)="seekBy(-10)" [disabled]="!nowPlaying()" aria-label="Back 10 seconds">−10s</button>
+      <button type="button" (click)="seekBy(10)" [disabled]="!nowPlaying()" aria-label="Forward 10 seconds">+10s</button>
+      <button type="button" (click)="adjustVolume(-0.1)" aria-label="Decrease volume">♪−</button>
+      <button type="button" (click)="adjustVolume(0.1)" aria-label="Increase volume">♪+</button>
+      <span class="visualizer-time">{{ formatTime(playbackPosition()) }} / {{ formatTime(playbackDuration()) }}</span>
+    </div>
+    <button class="visualizer-close" type="button" (click)="closeVisualizer()" aria-label="Close visualizer">×</button>
+  </section>
+</div>

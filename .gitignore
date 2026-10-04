@@ -1,0 +1,42 @@
+.data/youtube/HELP.md
+target/
+.data/
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### VS Code ###
+.vscode/
+**/node_modules/
+**/dist//
+
+### Adhoc ###
+/gateway/src/main/resources/application.yaml
+/youtube-service/src/main/resources/application.yaml
+/music-library/.angular/
+/music-library/dist/
+/music-library/package-lock.json
