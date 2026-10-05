@@ -14,13 +14,15 @@ public class PreparedPlaylistSkipListener implements SkipListener<PreparedPlayli
     public void onSkipInProcess(PreparedPlaylistTrack item, @NonNull Throwable error) {
         LOGGER.error(
             "Prepared track '{}' ({}) failed after Spring Batch retries; it remains in playlist {}",
-            item.track().name(), item.track().videoId(), item.playlistId(), error);
+            item.track().name(), item.track().videoId(), item.playlistId(), error
+        );
     }
 
     @Override
     public void onSkipInWrite(PreparedPlaylistTrackResult item, @NonNull Throwable error) {
         LOGGER.error(
             "Could not persist completion of prepared track '{}' ({}); it remains eligible for retry in playlist {}",
-            item.item().track().name(), item.item().track().videoId(), item.item().playlistId(), error);
+            item.item().track().name(), item.item().track().videoId(), item.item().playlistId(), error
+        );
     }
 }

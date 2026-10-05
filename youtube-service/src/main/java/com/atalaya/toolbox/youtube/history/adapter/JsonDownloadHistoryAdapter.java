@@ -109,10 +109,7 @@ public class JsonDownloadHistoryAdapter implements DownloadHistoryRepository {
         try {
             return withHistoryLock(historyDirectory, () -> {
                 migrateLegacyHistory(historyDirectory);
-                List<DownloadHistoryEntry> entries = readDailyHistory(historyDirectory).values().stream()
-                    .flatMap(List::stream)
-                    .sorted(Comparator.comparing(DownloadHistoryEntry::downloadedAt).reversed())
-                    .toList();
+                List<DownloadHistoryEntry> entries = readDailyHistory(historyDirectory).values().stream().flatMap(List::stream).sorted(Comparator.comparing(DownloadHistoryEntry::downloadedAt).reversed()).toList();
                 LOGGER.debug("Loaded {} download history entr(y/ies)", entries.size());
                 return entries;
             });
@@ -138,7 +135,6 @@ public class JsonDownloadHistoryAdapter implements DownloadHistoryRepository {
         if (!Files.exists(legacyAggregateFile) && legacyEntryFiles.isEmpty()) {
             return;
         }
-
         Map<String, List<DownloadHistoryEntry>> history = readDailyHistory(historyDirectory);
         if (Files.exists(legacyAggregateFile)) {
             Map<String, List<DownloadHistoryEntry>> oldHistory =
@@ -152,7 +148,6 @@ public class JsonDownloadHistoryAdapter implements DownloadHistoryRepository {
         for (Map.Entry<String, List<DownloadHistoryEntry>> day : history.entrySet()) {
             writeDailyHistory(historyDirectory, day.getKey(), day.getValue());
         }
-
         Files.deleteIfExists(legacyAggregateFile);
         for (Path legacyEntryFile : legacyEntryFiles) {
             Files.deleteIfExists(legacyEntryFile);
@@ -161,8 +156,7 @@ public class JsonDownloadHistoryAdapter implements DownloadHistoryRepository {
     }
 
     private void addIfMissing(Map<String, List<DownloadHistoryEntry>> history, DownloadHistoryEntry entry) {
-        List<DownloadHistoryEntry> dailyEntries =
-            history.computeIfAbsent(dayFor(entry), ignored -> new ArrayList<>());
+        List<DownloadHistoryEntry> dailyEntries = history.computeIfAbsent(dayFor(entry), ignored -> new ArrayList<>());
         if (!dailyEntries.contains(entry)) {
             dailyEntries.add(entry);
         }
@@ -170,11 +164,7 @@ public class JsonDownloadHistoryAdapter implements DownloadHistoryRepository {
 
     private List<Path> dailyFiles(Path historyDirectory) throws IOException {
         try (Stream<Path> files = Files.list(historyDirectory)) {
-            return files
-                .filter(Files::isRegularFile)
-                .filter(path -> DAILY_HISTORY_FILENAME.matcher(path.getFileName().toString()).matches())
-                .sorted()
-                .toList();
+            return files.filter(Files::isRegularFile).filter(path -> DAILY_HISTORY_FILENAME.matcher(path.getFileName().toString()).matches()).sorted().toList();
         }
     }
 

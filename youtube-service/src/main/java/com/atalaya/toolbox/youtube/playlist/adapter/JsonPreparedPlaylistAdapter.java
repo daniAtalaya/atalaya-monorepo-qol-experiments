@@ -19,6 +19,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
@@ -27,7 +28,7 @@ import java.util.stream.Stream;
 @Repository
 public class JsonPreparedPlaylistAdapter implements PreparedPlaylistRepository {
     private static final Logger LOGGER = LoggerFactory.getLogger(JsonPreparedPlaylistAdapter.class);
-    private static final ConcurrentHashMap<Path, ReentrantLock> JVM_LOCKS = new ConcurrentHashMap<>();
+    private static final Map<Path, ReentrantLock> JVM_LOCKS = new ConcurrentHashMap<>();
 
     private final YoutubeProperties properties;
     private final ObjectMapper objectMapper;

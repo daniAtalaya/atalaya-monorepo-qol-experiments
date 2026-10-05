@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Locale;
 import java.util.Objects;
 
 @Service
@@ -40,12 +41,9 @@ public class PreparedPlaylistTrackProcessingService {
     }
 
     public void processTrack(String playlistId, PreparedTrack track) {
-        PreparedPlaylist playlist = playlistRepository.findById(playlistId)
-            .orElseThrow(() -> new IllegalArgumentException("No existe una playlist preparada con el identificador indicado."));
+        PreparedPlaylist playlist = playlistRepository.findById(playlistId).orElseThrow(() -> new IllegalArgumentException("No existe una playlist preparada con el identificador indicado."));
         LOGGER.info("Processing prepared track '{}' ({}) from playlist {}", track.name(), track.videoId(), playlist.id());
-        String destination = track.destination() == null || track.destination().isBlank()
-            ? playlist.destination()
-            : track.destination();
+        String destination = track.destination() == null || track.destination().isBlank() ? playlist.destination() : track.destination();
         if (isAlreadyDownloaded(playlist, track.videoId(), destination)) {
             LOGGER.info("Track '{}' ({}) already exists in download history", track.name(), track.videoId());
             return;
@@ -95,9 +93,7 @@ public class PreparedPlaylistTrackProcessingService {
             return files
                 .filter(Files::isRegularFile)
                 .map(path -> path.getFileName().toString())
-                .anyMatch(filename -> filename.toLowerCase(java.util.Locale.ROOT).endsWith(".mp3")
-                    && (filename.substring(0, filename.length() - 4).equals(videoId)
-                        || filename.substring(0, filename.length() - 4).endsWith(" --- " + videoId)));
+                .anyMatch(filename -> filename.toLowerCase(Locale.ROOT).endsWith(".mp3") && (filename.substring(0, filename.length() - 4).equals(videoId) || filename.substring(0, filename.length() - 4).endsWith(" --- " + videoId)));
         } catch (java.io.IOException e) {
             throw new YoutubeDownloadException("No se pudo revisar la carpeta de canciones MP3.", e);
         }

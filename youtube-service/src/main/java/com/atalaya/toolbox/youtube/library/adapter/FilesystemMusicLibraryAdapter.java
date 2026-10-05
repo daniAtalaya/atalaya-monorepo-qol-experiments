@@ -37,14 +37,11 @@ public class FilesystemMusicLibraryAdapter implements MusicLibraryRepository {
         if (musicDirectory == null || !Files.isDirectory(musicDirectory, LinkOption.NOFOLLOW_LINKS)) {
             return List.of();
         }
-        int maxWalkDepth = nestedFolderDepth == null
-            ? Integer.MAX_VALUE
-            : nestedFolderDepth + 1;
+        int maxWalkDepth = nestedFolderDepth == null ? Integer.MAX_VALUE : nestedFolderDepth + 1;
         MutableDirectory root = new MutableDirectory("", toPortablePath(musicRoot.relativize(musicDirectory)));
         try (Stream<Path> paths = Files.walk(musicDirectory, maxWalkDepth)) {
             paths.forEach(path -> {
-                if (nestedFolderDepth != null && !path.equals(musicDirectory)
-                    && Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS)) {
+                if (nestedFolderDepth != null && !path.equals(musicDirectory) && Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS)) {
                     addDirectory(root, musicRoot, path);
                 } else if (Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS) && isMp3(path)) {
                     addTrack(root, musicRoot, path);
@@ -70,9 +67,7 @@ public class FilesystemMusicLibraryAdapter implements MusicLibraryRepository {
             return Optional.empty();
         }
         Path directory = musicRoot.resolve(requestedPath).normalize();
-        if (!directory.startsWith(musicRoot)
-            || !Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)
-            || containsSymbolicLink(musicRoot, directory)) {
+        if (!directory.startsWith(musicRoot) || !Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS) || containsSymbolicLink(musicRoot, directory)) {
             return Optional.empty();
         }
         return Optional.of(directory);
@@ -97,10 +92,7 @@ public class FilesystemMusicLibraryAdapter implements MusicLibraryRepository {
             return Optional.empty();
         }
         Path trackPath = musicDirectory.resolve(requestedPath).normalize();
-        if (!trackPath.startsWith(musicDirectory)
-            || !Files.isRegularFile(trackPath, LinkOption.NOFOLLOW_LINKS)
-            || !isMp3(trackPath)
-            || containsSymbolicLink(musicDirectory, trackPath)) {
+        if (!trackPath.startsWith(musicDirectory) || !Files.isRegularFile(trackPath, LinkOption.NOFOLLOW_LINKS) || !isMp3(trackPath) || containsSymbolicLink(musicDirectory, trackPath)) {
             return Optional.empty();
         }
         return Optional.of(trackPath);
@@ -131,8 +123,7 @@ public class FilesystemMusicLibraryAdapter implements MusicLibraryRepository {
             Path segment = relativePath.getName(index);
             parent = parent.resolve(segment);
             String normalizedParent = toPortablePath(parent);
-            MutableNode child = current.children.computeIfAbsent(
-                segment.toString(), ignored -> new MutableDirectory(segment.toString(), normalizedParent));
+            MutableNode child = current.children.computeIfAbsent(segment.toString(), ignored -> new MutableDirectory(segment.toString(), normalizedParent));
             if (!(child instanceof MutableDirectory directory)) {
                 throw new IllegalStateException("A music track conflicts with a directory in the music library.");
             }
@@ -176,9 +167,7 @@ public class FilesystemMusicLibraryAdapter implements MusicLibraryRepository {
 
         @Override
         public MusicLibraryNode toNode() {
-            return new MusicLibraryNode(name, path, true, 0, new ArrayList<>(children.values()).stream()
-                .map(MutableNode::toNode)
-                .toList());
+            return new MusicLibraryNode(name, path, true, 0, new ArrayList<>(children.values()).stream().map(MutableNode::toNode).toList());
         }
     }
 
