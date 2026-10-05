@@ -12,11 +12,11 @@ En Windows, Deno se puede instalar con `winget install DenoLand.Deno`; comprueba
 La aplicación convierte el mejor audio disponible a MP3 con calidad de codificación `0`.
 Los nombres de archivo siguen el formato `<título> --- <videoId>.mp3` (con caracteres no admitidos por el
 sistema de archivos reemplazados por `_`). Por defecto, guarda los MP3 en
-`music` y el historial JSON en `.data/youtube/history`;
+`.data/music` y el historial JSON en `.data/history`;
 la carpeta base se puede cambiar con `toolbox.youtube.storage-directory`.
 Cada registro incluye `downloadTimeMillis`, el tiempo transcurrido en milisegundos para descargar y convertir
 ese vídeo de forma individual. El historial se guarda en un archivo JSON independiente por día UTC,
-`.data/youtube/history/yyyy-MM-dd.json`; cada nueva canción se añade de forma serializada y se escribe
+`.data/history/yyyy-MM-dd.json`; cada nueva canción se añade de forma serializada y se escribe
 mediante un reemplazo atómico para evitar perder entradas concurrentes. El formato agrupado anterior y los
 archivos legacy por descarga se migran automáticamente al formato diario al leer o modificar el historial.
 
@@ -28,8 +28,8 @@ El repositorio contiene dos aplicaciones Spring Boot independientes, cada una co
 * `gateway`: Gateway público, puerto `8080`; reenvía `/api/{servicio}/...` al servicio configurado y reúne los
   documentos OpenAPI de los servicios configurados en una sola especificación.
 
-En Windows, `../.data/youtube/start-atalaya.ps1` permite arrancar los tres procesos en terminales separadas desde cualquier
-directorio: `& 'C:\ruta\al\proyecto\.data\start-atalaya.ps1'`. También acepta `-Start Youtube`, `-Start Gateway`,
+En Windows, `youtube-service/.data/start-atalaya.ps1` permite arrancar los tres procesos en terminales separadas desde cualquier
+directorio: `& 'C:\ruta\al\proyecto\youtube-service\.data\start-atalaya.ps1'`. También acepta `-Start Youtube`, `-Start Gateway`,
 `-Start Music` o `-Start All`. El script selecciona Java 27 solo en las terminales Maven que crea, usa la
 configuración privada de Maven de `%USERPROFILE%\.m2\settings.xml` y no cambia el entorno global ni el del
 proyecto Java 8. Antes de iniciar los servicios, conecta la VPN necesaria y verifica que las credenciales del
@@ -37,18 +37,18 @@ repositorio privado estén configuradas en `settings.xml`. Puedes personalizar l
 `-MavenSettings` o las variables `ATALAYA_JAVA_HOME` y `ATALAYA_MAVEN_SETTINGS`. `MAVEN_OPTS` contiene
 opciones de la JVM, no selecciona la versión de Java; el script evita heredar opciones del otro proyecto y permite
 configurarlas explícitamente con `-MavenOpts` o `ATALAYA_MAVEN_OPTS`. También fija
-`TOOLBOX_YOUTUBE_STORAGE_DIRECTORY` a `.data/youtube` en la raíz del proyecto para que Spring encuentre la
-biblioteca y el historial independientemente del directorio de trabajo interno de Maven.
+`TOOLBOX_YOUTUBE_STORAGE_DIRECTORY` a `youtube-service/.data` para que Spring encuentre la biblioteca y el
+historial independientemente del directorio de trabajo interno de Maven. Al ejecutar el servicio manualmente,
+usa `youtube-service` como directorio de trabajo para que la ruta `.data` apunte al mismo almacenamiento.
 
-Ejecuta Maven desde la raíz apuntando al POM de cada aplicación:
-`mvn -f youtube-service/pom.xml spring-boot:run` y
-`mvn -f gateway/pom.xml spring-boot:run` en terminales separadas. Para construir o probar una aplicación,
-usa `mvn -f <servicio>/pom.xml package` o `mvn -f <servicio>/pom.xml test`.
+Ejecuta Maven desde el directorio de cada aplicación: `cd youtube-service` y `mvn spring-boot:run`; en otra
+terminal, `cd gateway` y `mvn spring-boot:run`. Para construir o probar una aplicación, ejecuta
+`mvn package` o `mvn test` desde su directorio.
 La UI de Swagger del Gateway está en `http://localhost:8080/swagger-ui/index.html`; su documento agregado está en
 `http://localhost:8080/gateway/openapi.json`.
 
 No se requiere registro de servicios ni infraestructura externa. El Gateway carga las direcciones desde
-`toolbox.gateway.services` en `../../gateway/src/main/resources/application.yaml`; por defecto YouTube apunta a
+`toolbox.gateway.services` en `gateway/src/main/resources/application.yaml`; por defecto YouTube apunta a
 `http://localhost:8081`, configurable con `YOUTUBE_SERVICE_URL`. Para añadir un servicio hermano, agrega otra
 entrada con un `base-url` (puede ser una URL DNS local, por ejemplo `http://catalog-service:8082`) y su
 `openapi-path`, normalmente `/v3/api-docs`. El Gateway consulta cada documento al construir el OpenAPI agregado,
@@ -66,7 +66,7 @@ Content-Type: application/json
 
 Consulta las canciones registradas con `GET /api/youtube/history`.
 Desde Spring Shell se pueden usar `youtube download --url <URL>` y `youtube history`.
-La biblioteca de MP3 se explora desde la interfaz Angular independiente en `../../music-library`. Esta aplicación
+La biblioteca de MP3 se explora desde la interfaz Angular independiente en `music-library/`. Esta aplicación
 agrupa las canciones por carpetas, carga cada carpeta al expandirla y ofrece controles de reproducción y
 shuffle junto a una consola para los ocho endpoints del servicio. Los modos shuffle recorren toda la biblioteca
 o una carpeta con la profundidad seleccionada y vuelven a barajar al terminar cada ciclo. El árbol JSON está en
@@ -74,9 +74,9 @@ o una carpeta con la profundidad seleccionada y vuelven a barajar al terminar ca
 solo una rama o limitar los niveles descendientes (`0` incluye el contenido directo). Sin profundidad se
 devuelve el árbol completo. La reproducción usa `GET /api/youtube/music/track?path=<ruta-relativa>`.
 La escucha registra cada nuevo inicio de reproducción (no las pausas/reanudaciones) en
-`.data/music-player-listens.json`; `POST /api/youtube/music/listens` registra una reproducción y
+`.data/music-player-users.json`; `POST /api/youtube/music/listens` registra una reproducción y
 `GET /api/youtube/music/most-listened` devuelve las canciones ordenadas por número de escuchas.
-Los temas personalizables se almacenan en `../.data/youtube/music-player-theme.json` y se administran con
+Los temas personalizables se almacenan en `.data/music-player-theme.json` y se administran con
 `GET/POST /api/youtube/player-theme`, `PUT /api/youtube/player-theme/{themeId}`,
 `DELETE /api/youtube/player-theme/{themeId}` y `PUT /api/youtube/player-theme/selection`.
 Con Node.js 20.19+ o 22.12+, ejecuta `npm install` y `npm start` desde `music-library/`. El servidor de
@@ -89,10 +89,10 @@ con aislamiento de clientes. El servidor de desarrollo no debe exponerse a Inter
 Para playlists grandes, `POST /api/youtube/playlist/prepare` acepta la petición con HTTP 202 y devuelve
 inmediatamente el identificador de playlist, el estado `preparing` y la ruta del archivo de metadata. La
 consulta a yt-dlp se realiza en segundo plano; al terminar, se guarda
-`.data/youtube/prepared-playlists/<playlistId>.json` y se lanza un job de Spring Batch para descargar sus
+`.data/prepared-playlists/<playlistId>.json` y se lanza un job de Spring Batch para descargar sus
 canciones. El job procesa bloques de cuatro y realiza hasta tres intentos por canción con espera creciente; solo
 elimina del JSON las canciones descargadas con éxito. Spring Batch guarda su repositorio JDBC en
-`.data/youtube/batch-metadata.mv.db`; el JSON preparado sigue siendo la fuente de verdad de las canciones
+`.data/batch-metadata.mv.db`; el JSON preparado sigue siendo la fuente de verdad de las canciones
 pendientes. Consulta el estado de la preparación con
 `GET /api/youtube/playlist/prepare/status?playlistId=<playlistId>`; sus estados incluyen `preparing`,
 `prepared`, `complete` y `failed` (con el error disponible en ese último caso).

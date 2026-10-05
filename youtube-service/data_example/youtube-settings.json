@@ -1,1 +1,1 @@
-{"storageDirectory":".data\\youtube","jsRuntime":"deno","ejsRemoteComponents":"ejs:github","playlistDownloadAttempts":4,"playlistRetryDelayMillis":1000}
+{"storageDirectory":".data","jsRuntime":"deno","ejsRemoteComponents":"ejs:github","playlistDownloadAttempts":4,"playlistRetryDelayMillis":1000}

@@ -9,7 +9,17 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$projectRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
+$projectRoot = $PSScriptRoot
+while (-not ((Test-Path -LiteralPath (Join-Path $projectRoot 'youtube-service\pom.xml') -PathType Leaf) -and
+             (Test-Path -LiteralPath (Join-Path $projectRoot 'gateway\pom.xml') -PathType Leaf) -and
+             (Test-Path -LiteralPath (Join-Path $projectRoot 'music-library\package.json') -PathType Leaf))) {
+    $parentDirectory = Split-Path -Parent $projectRoot
+    if ([string]::IsNullOrWhiteSpace($parentDirectory) -or $parentDirectory -eq $projectRoot) {
+        throw "Could not locate the Atalaya repository root above '$PSScriptRoot'."
+    }
+    $projectRoot = $parentDirectory
+}
+$projectRoot = (Resolve-Path -LiteralPath $projectRoot).Path
 
 if ([string]::IsNullOrWhiteSpace($JavaHome)) {
     $JavaHome = Join-Path $HOME '.jdks\openjdk-27'
@@ -97,9 +107,10 @@ function Start-AtalayaService {
     $javaBinLiteral = ConvertTo-PowerShellLiteral $javaBin
     $settingsLiteral = ConvertTo-PowerShellLiteral $MavenSettings
     $mavenOptsLiteral = ConvertTo-PowerShellLiteral $MavenOpts
-    $pomLiteral = ConvertTo-PowerShellLiteral (Join-Path $projectRoot (Join-Path $Module 'pom.xml'))
+    $serviceRoot = Join-Path $projectRoot $Module
+    $pomLiteral = ConvertTo-PowerShellLiteral (Join-Path $serviceRoot 'pom.xml')
     $mavenLiteral = ConvertTo-PowerShellLiteral $mavenCommand
-    $storageDirectoryLiteral = ConvertTo-PowerShellLiteral (Join-Path $projectRoot '.data\youtube')
+    $storageDirectoryLiteral = ConvertTo-PowerShellLiteral (Join-Path (Join-Path $projectRoot 'youtube-service') '.data')
     $lines = @(
         "`$env:JAVA_HOME = $javaHomeLiteral"
         "`$env:PATH = $javaBinLiteral + ';' + `$env:PATH"
@@ -109,7 +120,7 @@ function Start-AtalayaService {
         "if (`$LASTEXITCODE -ne 0) { Write-Host 'Maven exited with code ' `$LASTEXITCODE -ForegroundColor Red }"
     )
 
-    Start-AtalayaWindow -Name $Name -WorkingDirectory $projectRoot -CommandLines $lines
+    Start-AtalayaWindow -Name $Name -WorkingDirectory $serviceRoot -CommandLines $lines
 }
 
 function Start-AtalayaMusicLibrary {

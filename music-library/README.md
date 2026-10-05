@@ -30,11 +30,11 @@ player. Selecting a track also prepares previous/next navigation for its contain
 the full library and a selected folder/depth. The music library, most-played ranking, and service toolbox are
 switchable tabs; the persistent player stays mounted while switching views. The toolbox includes the theme
 studio, YouTube settings, and forms for service endpoints. Themes are managed through
-`/api/youtube/player-theme` and stored in `../.data/youtube/music-player-theme.json`; the studio edits interface colors,
+`/api/youtube/player-theme` and stored in `../youtube-service/.data/music-player-theme.json`; the studio edits interface colors,
 backdrop, and visualizer style, palette, bar count, and sensitivity. Each successful new playback is counted
 once (pause/resume is not recounted). On first use, choose an existing username or create one; the selected
 username is remembered in browser local storage, and logging out lets another listener choose a profile.
-User profiles, selected themes, and listening counts are stored in `../.data/youtube/music-player-users.json`. The
+User profiles, selected themes, and listening counts are stored in `../youtube-service/.data/music-player-users.json`. The
 theme catalog remains shared, while the active theme and most-played list are per user. The username is
 only a profile label, not authentication: there are no passwords or access controls, so do not expose this
 app or its API to untrusted networks. Theme and listening endpoints accept the profile in the
@@ -42,4 +42,4 @@ app or its API to untrusted networks. Theme and listening endpoints accept the p
 creates one with `POST /api/youtube/users` and `{"username":"alex"}`. Player volume is remembered in
 browser storage, and selecting the now-playing area opens the full-screen audio-reactive visualizer.
 
-Older listen counts from `.data/music-player-listens.json` are not assigned to a profile automatically.
+Older listen counts from `../youtube-service/.data/music-player-listens.json` are not assigned to a profile automatically.

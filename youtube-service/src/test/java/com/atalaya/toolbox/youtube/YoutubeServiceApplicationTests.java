@@ -36,6 +36,7 @@ import static org.mockito.Mockito.when;
 
 @SpringBootTest(properties = {
     "toolbox.youtube.storage-directory=target",
+    "toolbox.youtube.settings-file=target/test-youtube-settings.json",
     "toolbox.youtube.playlist-retry-delay-millis=0"
 })
 @AutoConfigureMockMvc

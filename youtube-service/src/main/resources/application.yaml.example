@@ -11,9 +11,8 @@ server:
 
 toolbox:
   youtube:
-    storage-directory: .data/youtube
+    storage-directory: .data
     js-runtime: deno
     ejs-remote-components: ejs:github
     playlist-download-attempts: 3
     playlist-retry-delay-millis: 1000
-

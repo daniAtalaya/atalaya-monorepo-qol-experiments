@@ -65,7 +65,7 @@ public class YoutubeProperties {
     }
 
     public Path resolvedStorageDirectory() {
-        Path configuredPath = storageDirectory == null ? Path.of(".data", "youtube") : storageDirectory;
+        Path configuredPath = storageDirectory == null ? Path.of(".data") : storageDirectory;
         return (configuredPath.isAbsolute() ? configuredPath : Path.of(System.getProperty("user.dir")).resolve(configuredPath)).normalize();
     }
 
