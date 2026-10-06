@@ -1,7 +1,7 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { MusicLibraryNode } from './music-library.models';
+import { MusicLibraryNode, PlaybackTransition, RepeatMode } from './music-library.models';
 
 @Injectable({ providedIn: 'root' })
 export class MusicLibraryApiService {
@@ -19,5 +19,9 @@ export class MusicLibraryApiService {
 
   trackUrl(path: string): string {
     return `${this.apiRoot}/track?path=${encodeURIComponent(path)}`;
+  }
+
+  playbackEnded(repeatMode: RepeatMode): Observable<PlaybackTransition> {
+    return this.http.post<PlaybackTransition>(`${this.apiRoot}/playback/ended`, { repeatMode });
   }
 }

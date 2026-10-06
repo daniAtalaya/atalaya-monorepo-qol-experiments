@@ -2,6 +2,7 @@ package com.atalaya.toolbox.gateway;
 
 import com.atalaya.toolbox.gateway.configuration.GatewayProperties;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
@@ -31,6 +32,37 @@ public class GatewayProxyController {
     public GatewayProxyController(GatewayProperties properties, RestClient.Builder restClientBuilder) {
         this.properties = properties;
         this.restClient = restClientBuilder.build();
+    }
+
+    /** Large archives and multipart uploads must pass through without byte-array buffering. */
+    @RequestMapping({"/api/preferences/backups", "/api/preferences/backups/**"})
+    public void proxyBackups(HttpServletRequest incoming, HttpServletResponse outgoing) throws IOException {
+        GatewayProperties.Service service = properties.getServices().get("preferences");
+        if (service == null || service.baseUrl() == null || service.baseUrl().isBlank()) {
+            throw new UnknownGatewayServiceException("preferences");
+        }
+        String target = trimTrailingSlash(service.baseUrl())
+            + incoming.getRequestURI().substring(incoming.getContextPath().length());
+        if (incoming.getQueryString() != null) target += "?" + incoming.getQueryString();
+        RestClient.RequestBodySpec request = restClient.method(HttpMethod.valueOf(incoming.getMethod()))
+            .uri(URI.create(target)).headers(headers -> copyRequestHeaders(incoming, headers));
+        if (incoming.getContentLengthLong() > 0 || incoming.getHeader("Transfer-Encoding") != null) {
+            request.body(output -> StreamUtils.copy(incoming.getInputStream(), output));
+        }
+        request.exchange((clientRequest, response) -> {
+            outgoing.setStatus(response.getStatusCode().value());
+            response.getHeaders().forEach((name, values) -> {
+                if (!HOP_BY_HOP_HEADERS.contains(name.toLowerCase(Locale.ROOT))) {
+                    values.forEach(value -> outgoing.addHeader(name, value));
+                }
+            });
+            try {
+                StreamUtils.copy(response.getBody(), outgoing.getOutputStream());
+            } catch (IOException exception) {
+                throw new UncheckedIOException(exception);
+            }
+            return null;
+        });
     }
 
     @RequestMapping("/api/{service}/**")

@@ -11,7 +11,9 @@ server:
 
 toolbox:
   youtube:
-    storage-directory: .data
+    storage-directory: ../.data/music
+    settings-file: ../.data/music/youtube-settings.json
+    music-directory: songs
     js-runtime: deno
     ejs-remote-components: ejs:github
     playlist-download-attempts: 3

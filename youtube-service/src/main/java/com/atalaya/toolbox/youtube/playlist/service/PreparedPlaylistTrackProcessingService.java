@@ -70,7 +70,7 @@ public class PreparedPlaylistTrackProcessingService {
         if (existsInHistory) {
             return true;
         }
-        Path musicDirectory = properties.resolvedStorageDirectory().resolve("music");
+        Path musicDirectory = properties.resolvedMusicDirectory(null);
         if (Files.isDirectory(musicDirectory)) {
             try (var files = Files.walk(musicDirectory)) {
                 boolean existsInMusicDirectory = files

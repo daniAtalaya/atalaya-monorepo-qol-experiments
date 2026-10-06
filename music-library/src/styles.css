@@ -25,11 +25,11 @@
   font-size: 10px; font-weight: 750; height: 28px; justify-content: center; width: 28px;
 }
 .app-shell .active-user-name { color: var(--muted); font-size: 10px; max-width: 100px; overflow: hidden; text-overflow: ellipsis; }
-.app-shell .active-user button {
+.app-shell .active-user > button {
   background: transparent; border: 1px solid var(--line); border-radius: 999px; color: var(--muted);
   cursor: pointer; font: inherit; font-size: 9px; padding: 6px 9px;
 }
-.app-shell .active-user button:hover { border-color: var(--accent); color: var(--text); }
+.app-shell .active-user > button:hover { border-color: var(--accent); color: var(--text); }
 .app-shell .user-gate {
   align-items: center;
   background: radial-gradient(ellipse at 20% 15%, color-mix(in srgb, var(--accent) 20%, transparent), transparent 45%),
@@ -206,13 +206,13 @@
 
 @media (max-width: 520px) {
   .app-shell .topbar { align-items: center; display: grid; gap: 8px; grid-template-columns: minmax(0, 1fr) auto auto; padding: 10px 14px; }
-  .app-shell .workspace-tabs { grid-column: 1 / -1; width: 100%; }
-  .app-shell .workspace-tabs button { flex: 1; font-size: 10px; padding: 7px 5px; }
+  .app-shell .workspace-tabs, .app-shell .workspace-subtabs { grid-column: 1 / -1; width: 100%; }
+  .app-shell .workspace-tabs button, .app-shell .workspace-subtabs button { flex: 1; font-size: 10px; padding: 7px 5px; }
   .app-shell .theme-control { grid-column: 3; grid-row: 1; }
   .app-shell .active-user { grid-column: 2; grid-row: 1; gap: 5px; }
   .app-shell .user-avatar { height: 24px; width: 24px; }
   .app-shell .active-user-name { display: none; }
-  .app-shell .active-user button { font-size: 8px; padding: 5px 6px; }
+  .app-shell .active-user > button { font-size: 8px; padding: 5px 6px; }
   .app-shell .theme-trigger { font-size: 10px; padding: 7px 9px; }
   .app-shell .theme-trigger-name { display: none; }
   .app-shell .hero { min-height: 76px; }
@@ -277,3 +277,20 @@ button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visib
 }
 input:focus-visible { border-color: var(--accent); outline: 2px solid color-mix(in srgb, var(--accent) 25%, transparent); }
 ::selection { background: var(--accent); color: var(--accent-ink, #0b1220); }
+
+.series-workspace .episode-edit-form { align-items: end; display: grid; flex: 1; gap: 8px; grid-template-columns: 75px 75px minmax(120px, 1fr) minmax(130px, 1.2fr) auto; }
+.series-workspace .episode-entry-actions { display: flex; gap: 5px; }
+.series-workspace .episode-edit-form .episode-entry-actions button { min-height: 38px; white-space: nowrap; }
+.series-workspace .episode-star { color: var(--series-accent); font-size: 9px; }
+.series-workspace .episode-entry button:hover { border-color: var(--series-line); color: #e5938c; }
+.series-workspace .episode-entry button.episode-remove { font-size: 16px; padding: 3px 9px; }
+.series-workspace .episode-empty { color: var(--series-muted); font-size: 8px; padding: 4px; }
+@media (max-width: 900px) {
+  .series-workspace .episode-edit-form { grid-template-columns: 70px 70px minmax(110px, 1fr) auto; }
+  .series-workspace .episode-edit-notes, .series-workspace .episode-edit-form .episode-entry-actions { grid-column: span 2; }
+}
+@media (max-width: 600px) {
+  .series-workspace .episode-edit-form { grid-template-columns: 1fr 1fr; }
+  .series-workspace .episode-edit-title, .series-workspace .episode-edit-notes,
+  .series-workspace .episode-edit-form .episode-entry-actions { grid-column: span 2; }
+}

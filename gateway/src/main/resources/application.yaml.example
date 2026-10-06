@@ -1,6 +1,9 @@
 spring:
   application:
     name: atalaya-toolbox-gateway
+  servlet:
+    multipart:
+      enabled: false
 
 server:
   port: 8080
@@ -14,4 +17,10 @@ toolbox:
     services:
       youtube:
         base-url: ${YOUTUBE_SERVICE_URL:http://localhost:8081}
+        openapi-path: /v3/api-docs
+      series:
+        base-url: ${SERIES_SERVICE_URL:http://localhost:8082}
+        openapi-path: /v3/api-docs
+      preferences:
+        base-url: ${PREFERENCES_SERVICE_URL:http://localhost:8083}
         openapi-path: /v3/api-docs

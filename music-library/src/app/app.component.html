@@ -32,6 +32,7 @@
         </button>
         <p class="user-gate-note">Username only. No passwords, accounts, or sign-in service.</p>
       </ng-container>
+      <atalaya-panic-backup (restoring)="prepareForRestore()" />
     </form>
   </section>
 
@@ -39,19 +40,29 @@
   <header class="topbar">
     <a class="wordmark" href="/" aria-label="Atalaya Music home">
       <span class="wordmark-mark">A</span>
-      <span>ATALAYA<small>MUSIC LIBRARY</small></span>
+      <span>ATALAYA<small>PERSONAL MEDIA</small></span>
     </a>
-    <nav class="workspace-tabs" aria-label="Workspace">
-      <button type="button" role="tab" (click)="selectTab('library')"
-        [attr.aria-selected]="activeTab() === 'library'" [class.active]="activeTab() === 'library'">
+    <nav class="workspace-tabs" aria-label="App workspace">
+      <button type="button" (click)="selectWorkspace('music')"
+        [attr.aria-pressed]="activeWorkspace() === 'music'" [class.active]="activeWorkspace() === 'music'">
+        Music
+      </button>
+      <button type="button" (click)="selectWorkspace('series')"
+        [attr.aria-pressed]="activeWorkspace() === 'series'" [class.active]="activeWorkspace() === 'series'">
+        Series tracker
+      </button>
+    </nav>
+    <nav *ngIf="activeWorkspace() === 'music'" class="workspace-subtabs" aria-label="Music workspace">
+      <button type="button" (click)="selectTab('library')"
+        [attr.aria-pressed]="activeTab() === 'library'" [class.active]="activeTab() === 'library'">
         Music library
       </button>
-      <button type="button" role="tab" (click)="selectTab('most-played')"
-        [attr.aria-selected]="activeTab() === 'most-played'" [class.active]="activeTab() === 'most-played'">
+      <button type="button" (click)="selectTab('most-played')"
+        [attr.aria-pressed]="activeTab() === 'most-played'" [class.active]="activeTab() === 'most-played'">
         Most played
       </button>
-      <button type="button" role="tab" (click)="selectTab('service')"
-        [attr.aria-selected]="activeTab() === 'service'" [class.active]="activeTab() === 'service'">
+      <button type="button" (click)="selectTab('service')"
+        [attr.aria-pressed]="activeTab() === 'service'" [class.active]="activeTab() === 'service'">
         YouTube service
       </button>
     </nav>
@@ -86,11 +97,13 @@
     <div class="active-user">
       <span class="user-avatar" aria-hidden="true">{{ activeUsername().slice(0, 1).toUpperCase() }}</span>
       <span class="active-user-name">{{ activeUsername() }}</span>
+      <atalaya-panic-backup (restoring)="prepareForRestore()" />
       <button type="button" (click)="logoutMusicPlayerUser()" aria-label="Log out and switch user">Log out</button>
     </div>
   </header>
 
   <main class="workspace">
+    <div class="music-workspace" [hidden]="activeWorkspace() !== 'music'">
     <div class="library-column" [hidden]="activeTab() !== 'library'">
       <section class="hero">
         <div>
@@ -147,7 +160,7 @@
         <div>
           <p class="eyebrow">YOUR LISTENING HISTORY</p>
           <h1 id="ranking-title">Most played</h1>
-          <p>Every new playback is counted once. Pausing and resuming doesn’t add another listen.</p>
+          <p>Every playback counts, including repeats. Pausing and resuming keeps the same listen.</p>
         </div>
         <button class="icon-button" type="button" (click)="loadListenRanking()" aria-label="Refresh most played">↻</button>
       </div>
@@ -385,6 +398,8 @@
         <ng-template #plainApiResponse><pre aria-live="polite">{{ apiResponse() }}</pre></ng-template>
       </div>
     </section>
+    </div>
+    <atalaya-series-tracker *ngIf="activeWorkspace() === 'series'" [username]="activeUsername()" />
   </main>
   </ng-container>
 
@@ -437,9 +452,12 @@
     </button>
     <div class="player-controls">
       <button type="button" (click)="playPreviousTrack()" [disabled]="!nowPlaying()" aria-label="Previous track">|◀</button>
+      <button type="button" (click)="togglePlayback()" [disabled]="!nowPlaying()"
+        [attr.aria-label]="isPlaying() ? 'Pause' : 'Play'">{{ isPlaying() ? 'Ⅱ' : '▶' }}</button>
       <button type="button" (click)="playNextTrack()" [disabled]="!nowPlaying()" aria-label="Next track">▶|</button>
+      <atalaya-repeat-control [mode]="repeatMode()" [disabled]="!nowPlaying()" (change)="cycleRepeatMode()" />
     </div>
-    <audio #player controls preload="none" (ended)="onPlaybackEnded()" (play)="onPlaybackStateChange()"
+    <audio #player controls preload="none" (ended)="onPlaybackEnded()" (playing)="onPlaybackStateChange()"
       (pause)="onPlaybackStateChange()" (timeupdate)="onPlaybackTimeUpdate()"
       (loadedmetadata)="onPlaybackTimeUpdate()" (volumechange)="saveVolume()"></audio>
     <button *ngIf="shuffleAvailable()" class="player-note" type="button" (click)="toggleShuffle()"
@@ -465,6 +483,7 @@
       <button class="visualizer-play" type="button" (click)="toggleCurrentTrack()" [disabled]="!nowPlaying()"
         [attr.aria-label]="isPlaying() ? 'Pause' : 'Play'">{{ isPlaying() ? 'Ⅱ' : '▶' }}</button>
       <button type="button" (click)="playNextTrack()" [disabled]="!nowPlaying()" aria-label="Next track">▶|</button>
+      <atalaya-repeat-control [mode]="repeatMode()" [disabled]="!nowPlaying()" (change)="cycleRepeatMode()" />
       <button *ngIf="shuffleAvailable()" type="button" class="visualizer-shuffle"
         (click)="toggleShuffle()" [class.shuffle-enabled]="shuffleMode() !== 'off'">
         Shuffle {{ shuffleMode() === 'off' ? 'off' : 'on' }}

@@ -7,6 +7,12 @@ export interface MusicLibraryNode {
 }
 
 export type ShuffleMode = 'off' | 'library' | 'folder';
+export type RepeatMode = 'off' | 'once' | 'infinite';
+
+export interface PlaybackTransition {
+  replay: boolean;
+  repeatMode: RepeatMode;
+}
 
 export interface YoutubeSettings {
   storageDirectory: string;

@@ -6,7 +6,8 @@ import java.nio.file.Path;
 
 @ConfigurationProperties(prefix = "toolbox.youtube")
 public class YoutubeProperties {
-    private volatile Path storageDirectory;
+    private volatile String storageDirectory = ".data";
+    private volatile String musicDirectory = "music";
     private volatile String jsRuntime = "deno";
     private volatile String ejsRemoteComponents = "ejs:github";
     private volatile int playlistDownloadAttempts = 3;
@@ -14,22 +15,90 @@ public class YoutubeProperties {
 
     public YoutubeProperties() {}
 
-    public YoutubeProperties(Path storageDirectory) {
+    public YoutubeProperties(String storageDirectory) {
         this.storageDirectory = storageDirectory;
     }
 
-    public YoutubeProperties(Path storageDirectory, String jsRuntime, String ejsRemoteComponents) {
+    public YoutubeProperties(String storageDirectory, String jsRuntime, String ejsRemoteComponents) {
         this.storageDirectory = storageDirectory;
         this.jsRuntime = jsRuntime;
         this.ejsRemoteComponents = ejsRemoteComponents;
     }
 
-    public Path getStorageDirectory() {
+    public Path resolvedStorageDirectory() {
+        Path configuredPath =
+                storageDirectory == null || storageDirectory.isBlank()
+                        ? Path.of(".data")
+                        : Path.of(storageDirectory);
+
+        return (configuredPath.isAbsolute()
+                ? configuredPath
+                : Path.of(System.getProperty("user.dir")).resolve(configuredPath))
+                .normalize();
+    }
+    public Path resolvedMusicDirectory(String destination) {
+
+        if (musicDirectory == null || musicDirectory.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Music directory must not be blank."
+            );
+        }
+
+        Path storage = resolvedStorageDirectory();
+
+        Path music = storage
+                .resolve(this.musicDirectory)
+                .normalize();
+
+        if (!music.startsWith(storage)) {
+            throw new IllegalArgumentException(
+                    "Music directory must remain inside the YouTube storage directory."
+            );
+        }
+
+        if (destination == null || destination.isBlank()) {
+            return music;
+        }
+
+        validateDestination(destination);
+
+        Path relativeDestination;
+
+        try {
+            relativeDestination = Path.of(destination);
+        } catch (RuntimeException e) {
+            throw new IllegalArgumentException(
+                    "La carpeta destino no es válida.",
+                    e
+            );
+        }
+
+        Path resolvedDestination =
+                music.resolve(relativeDestination).normalize();
+
+        if (!resolvedDestination.startsWith(music)) {
+            throw new IllegalArgumentException(
+                    "La carpeta destino debe permanecer dentro de music."
+            );
+        }
+
+        return resolvedDestination;
+    }
+
+    public String getStorageDirectory() {
         return storageDirectory;
     }
 
-    public void setStorageDirectory(Path storageDirectory) {
+    public void setStorageDirectory(String storageDirectory) {
         this.storageDirectory = storageDirectory;
+    }
+
+    public String getMusicDirectory() {
+        return musicDirectory;
+    }
+
+    public void setMusicDirectory(String musicDirectory) {
+        this.musicDirectory = musicDirectory;
     }
 
     public String getJsRuntime() {
@@ -62,30 +131,6 @@ public class YoutubeProperties {
 
     public void setPlaylistRetryDelayMillis(long playlistRetryDelayMillis) {
         this.playlistRetryDelayMillis = playlistRetryDelayMillis;
-    }
-
-    public Path resolvedStorageDirectory() {
-        Path configuredPath = storageDirectory == null ? Path.of(".data") : storageDirectory;
-        return (configuredPath.isAbsolute() ? configuredPath : Path.of(System.getProperty("user.dir")).resolve(configuredPath)).normalize();
-    }
-
-    public Path resolvedMusicDirectory(String destination) {
-        Path musicDirectory = resolvedStorageDirectory().resolve("music").normalize();
-        if (destination == null || destination.isBlank()) {
-            return musicDirectory;
-        }
-        validateDestination(destination);
-        Path relativeDestination;
-        try {
-            relativeDestination = Path.of(destination);
-        } catch (RuntimeException e) {
-            throw new IllegalArgumentException("La carpeta destino no es válida.", e);
-        }
-        Path resolvedDestination = musicDirectory.resolve(relativeDestination).normalize();
-        if (!resolvedDestination.startsWith(musicDirectory)) {
-            throw new IllegalArgumentException("La carpeta destino debe permanecer dentro de music.");
-        }
-        return resolvedDestination;
     }
 
     public static void validateDestination(String destination) {

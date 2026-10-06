@@ -23,7 +23,7 @@ public class YoutubeSettingsService {
     public YoutubeSettingsService(
         YoutubeProperties properties,
         ObjectMapper objectMapper,
-        @Value("${toolbox.youtube.settings-file:.data/youtube-settings.json}") String settingsFile
+        @Value("${toolbox.youtube.settings-file:../.data/music/youtube-settings.json}") String settingsFile
     ) {
         this.properties = properties;
         this.objectMapper = objectMapper;
@@ -34,7 +34,12 @@ public class YoutubeSettingsService {
     public void loadSavedSettings() {
         if (!Files.exists(settingsFile)) return;
         try {
-            apply(objectMapper.readValue(settingsFile.toFile(), YoutubeSettings.class));
+            YoutubeSettings saved = objectMapper.readValue(settingsFile.toFile(), YoutubeSettings.class);
+            if (".data".equals(saved.storageDirectory()) && properties.getStorageDirectory() != null) {
+                saved = new YoutubeSettings(properties.getStorageDirectory().toString(), saved.jsRuntime(),
+                    saved.ejsRemoteComponents(), saved.playlistDownloadAttempts(), saved.playlistRetryDelayMillis());
+            }
+            apply(saved);
         } catch (IOException | IllegalArgumentException exception) {
             throw new IllegalStateException("Could not load saved YouTube settings from " + settingsFile, exception);
         }
@@ -70,7 +75,7 @@ public class YoutubeSettingsService {
 
     private void apply(YoutubeSettings settings) {
         validate(settings);
-        properties.setStorageDirectory(Path.of(settings.storageDirectory()));
+        properties.setStorageDirectory(settings.storageDirectory());
         properties.setJsRuntime(settings.jsRuntime());
         properties.setEjsRemoteComponents(settings.ejsRemoteComponents());
         properties.setPlaylistDownloadAttempts(settings.playlistDownloadAttempts());

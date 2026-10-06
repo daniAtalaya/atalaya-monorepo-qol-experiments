@@ -2,9 +2,9 @@ package com.atalaya.toolbox.youtube.library;
 
 import com.atalaya.toolbox.youtube.library.usecase.GetMusicLibraryUseCase;
 import com.atalaya.toolbox.youtube.library.domain.MusicLibraryNode;
-import com.atalaya.toolbox.youtube.library.domain.MostListenedTrack;
-import com.atalaya.toolbox.youtube.library.domain.TrackListenRequest;
-import com.atalaya.toolbox.youtube.library.service.TrackListenService;
+import com.atalaya.toolbox.youtube.library.domain.PlaybackEndRequest;
+import com.atalaya.toolbox.youtube.library.domain.PlaybackTransition;
+import com.atalaya.toolbox.youtube.library.service.PlaybackPolicyService;
 import jakarta.validation.Valid;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
@@ -16,7 +16,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.nio.charset.StandardCharsets;
@@ -26,24 +25,16 @@ import java.util.List;
 @RequestMapping("/api/youtube/music")
 public class MusicLibraryController {
     private final GetMusicLibraryUseCase musicLibraryUseCase;
-    private final TrackListenService trackListenService;
+    private final PlaybackPolicyService playbackPolicy;
 
-    public MusicLibraryController(GetMusicLibraryUseCase musicLibraryUseCase, TrackListenService trackListenService) {
+    public MusicLibraryController(GetMusicLibraryUseCase musicLibraryUseCase, PlaybackPolicyService playbackPolicy) {
         this.musicLibraryUseCase = musicLibraryUseCase;
-        this.trackListenService = trackListenService;
+        this.playbackPolicy = playbackPolicy;
     }
 
-    @GetMapping("/most-listened")
-    public List<MostListenedTrack> mostListened(@RequestHeader("X-Atalaya-Username") String username) {
-        return trackListenService.mostListened(username);
-    }
-
-    @PostMapping("/listens")
-    public MostListenedTrack recordListen(
-        @RequestHeader("X-Atalaya-Username") String username,
-        @Valid @RequestBody TrackListenRequest request
-    ) {
-        return trackListenService.recordListen(username, request.path());
+    @PostMapping("/playback/ended")
+    public PlaybackTransition playbackEnded(@Valid @RequestBody PlaybackEndRequest request) {
+        return playbackPolicy.onTrackEnded(request.repeatMode());
     }
 
     @GetMapping("/tree")

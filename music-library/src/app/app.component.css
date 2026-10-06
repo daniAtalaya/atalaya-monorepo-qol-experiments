@@ -25,8 +25,8 @@
   width: 100%;
 }
 
-.workspace-tabs { align-items: center; display: flex; gap: 6px; }
-.workspace-tabs button {
+.workspace-tabs, .workspace-subtabs { align-items: center; display: flex; gap: 6px; }
+.workspace-tabs button, .workspace-subtabs button {
   background: transparent;
   border: 1px solid transparent;
   border-radius: 7px;
@@ -36,8 +36,8 @@
   font-size: 11px;
   padding: 9px 13px;
 }
-.workspace-tabs button:hover { color: var(--text); }
-.workspace-tabs button.active { background: var(--nav-background); border-color: var(--line); color: var(--accent); }
+.workspace-tabs button:hover, .workspace-subtabs button:hover { color: var(--text); }
+.workspace-tabs button.active, .workspace-subtabs button.active { background: var(--nav-background); border-color: var(--line); color: var(--accent); }
 
 .wordmark {
   align-items: center;
@@ -85,6 +85,7 @@ main {
 }
 
 .workspace { height: 100%; min-height: 0; }
+.music-workspace { height: 100%; min-height: 0; overflow: hidden; }
 
 .library-column {
   display: flex; flex-direction: column; height: 100%; min-height: 0; min-width: 0; overflow: hidden;
@@ -684,8 +685,8 @@ audio { height: 38px; min-width: 0; width: 100%; }
 @media (max-width: 760px) {
   .topbar { flex-wrap: wrap; gap: 12px; padding: 14px 20px; }
   .topbar .wordmark { margin-right: auto; }
-  .workspace-tabs { order: 2; overflow-x: auto; }
-  .workspace-tabs button { padding: 8px 9px; white-space: nowrap; }
+  .workspace-tabs, .workspace-subtabs { order: 2; overflow-x: auto; }
+  .workspace-tabs button, .workspace-subtabs button { padding: 8px 9px; white-space: nowrap; }
   .theme-control { order: 3; }
   main { padding: 0 20px; }
   .hero { min-height: clamp(9rem, 24vh, 18.125rem); }

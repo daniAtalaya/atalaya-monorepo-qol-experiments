@@ -1,0 +1,241 @@
+<section class="series-workspace" aria-labelledby="series-title">
+  <div class="series-hero">
+    <div class="series-hero-copy">
+      <p class="series-eyebrow">YOUR PERSONAL SCREENING ROOM</p>
+      <h1 id="series-title">Stories in<br><em>their own time.</em></h1>
+      <p>A soft landing for the shows you’re following, the episodes you’ve lived, and the ones still on the horizon.</p>
+    </div>
+    <div class="series-orbit" aria-hidden="true">
+      <span class="orbit-ring ring-back"></span>
+      <span class="orbit-ring ring-front"></span>
+      <span class="orbit-moon"></span>
+      <span class="orbit-star star-one">✦</span>
+      <span class="orbit-star star-two">✧</span>
+    </div>
+    <button class="series-add-button" type="button" (click)="beginCreate()">＋ <span>Add a series</span></button>
+  </div>
+
+  <div class="series-stat-row" aria-label="Your tracker at a glance">
+    <article class="series-stat">
+      <span>ON YOUR RADAR</span>
+      <strong>{{ shows().length.toString().padStart(2, '0') }}</strong>
+      <small>series in your orbit</small>
+    </article>
+    <article class="series-stat">
+      <span>IN THE MIDDLE</span>
+      <strong>{{ statusCount('AIRING') }}</strong>
+      <small>currently airing</small>
+    </article>
+    <article class="series-stat">
+      <span>CHAPTERS LIVED</span>
+      <strong>{{ totalWatched() }}</strong>
+      <small>episodes in your log</small>
+    </article>
+    <article class="series-stat">
+      <span>THE FINALE</span>
+      <strong>{{ statusCount('COMPLETED') }}</strong>
+      <small>stories completed</small>
+    </article>
+  </div>
+
+  <div class="series-toolbar">
+    <nav class="series-views" aria-label="Series views">
+      <button type="button" (click)="selectView('week')" [class.active]="activeView() === 'week'">Week at a glance</button>
+      <button type="button" (click)="selectView('library')" [class.active]="activeView() === 'library'">All series</button>
+      <button type="button" (click)="selectView('timeline')" [class.active]="activeView() === 'timeline'">Story timeline</button>
+    </nav>
+    <label class="series-search">
+      <span aria-hidden="true">⌕</span>
+      <input type="search" placeholder="Find a story…" [value]="searchQuery()" (input)="onSearchChange($event)">
+    </label>
+  </div>
+
+  <p *ngIf="error()" class="series-notice series-error" role="alert">{{ error() }}</p>
+  <p *ngIf="notice()" class="series-notice" aria-live="polite">{{ notice() }}</p>
+  <p *ngIf="loading()" class="series-empty">Gathering your stories…</p>
+
+  <ng-container *ngIf="!loading()">
+    <section *ngIf="activeView() === 'week'" class="week-board" aria-label="Weekly release calendar">
+      <article *ngFor="let day of weekDays" class="week-column" [class.today]="day.key === todayKey">
+        <div class="week-day-heading">
+          <span>{{ day.label }}</span>
+          <small>{{ showsForDay(day.key).length.toString().padStart(2, '0') }}</small>
+        </div>
+        <button *ngFor="let show of showsForDay(day.key)" type="button" class="week-show"
+          [class.selected]="selectedId() === show.id" (click)="showDetails(show)">
+          <span class="week-show-cover" [style.background-image]="show.coverUrl ? 'url(' + show.coverUrl + ')' : null">
+            <span *ngIf="!show.coverUrl" aria-hidden="true">✦</span>
+          </span>
+          <span class="week-show-copy">
+            <strong>{{ show.title }}</strong>
+            <small>{{ show.scheduleTime || 'Release day' }}<span *ngIf="show.platform"> · {{ show.platform }}</span></small>
+            <small *ngIf="show.nextEpisodeDate" class="week-next-date">Next · {{ show.nextEpisodeDate }}</small>
+          </span>
+          <span class="week-show-status" [attr.data-status]="show.status"></span>
+        </button>
+        <p *ngIf="showsForDay(day.key).length === 0" class="week-empty">A little breathing room.</p>
+      </article>
+    </section>
+
+    <section *ngIf="activeView() === 'week' && showsForDay('FLEXIBLE').length" class="flexible-shelf">
+      <span class="series-eyebrow">WHENEVER YOU’RE READY</span>
+      <button *ngFor="let show of showsForDay('FLEXIBLE')" type="button" class="flexible-show"
+        (click)="showDetails(show)">✦ {{ show.title }}</button>
+    </section>
+
+    <section *ngIf="activeView() === 'library'" class="series-library">
+      <article *ngFor="let show of filteredShows()" class="series-card" [class.selected]="selectedId() === show.id">
+        <button type="button" class="series-card-main" (click)="showDetails(show)">
+          <span class="series-poster" [style.background-image]="show.coverUrl ? 'url(' + show.coverUrl + ')' : null">
+            <span *ngIf="!show.coverUrl" aria-hidden="true">✦</span>
+            <span class="poster-sheen"></span>
+          </span>
+          <span class="series-card-copy">
+            <span class="series-card-kicker">{{ formatDay(show.scheduleDay) }}<span *ngIf="show.platform"> · {{ show.platform }}</span></span>
+            <strong>{{ show.title }}</strong>
+            <span class="series-card-description">{{ show.description || 'A story worth keeping close.' }}</span>
+            <span class="series-tags">
+              <span [attr.data-status]="show.status">{{ show.status | lowercase }}</span>
+              <span *ngFor="let genre of show.genres">{{ genre }}</span>
+            </span>
+            <span class="series-progress" *ngIf="episodeCapacity(show) > 0">
+              <span><i [style.width.%]="progressPercent(show)"></i></span>
+              <small>{{ watchedCount(show) }} / {{ episodeCapacity(show) }} episodes</small>
+            </span>
+          </span>
+        </button>
+      </article>
+      <p *ngIf="filteredShows().length === 0" class="series-empty">
+        {{ searchQuery() ? 'No stories match that search.' : 'Your shelf is waiting for its first story.' }}
+      </p>
+    </section>
+
+    <section *ngIf="activeView() === 'timeline'" class="story-timeline" aria-label="Series release timeline">
+      <article *ngFor="let show of timelineShows(); let position = index" class="timeline-entry">
+        <div class="timeline-marker">
+          <span>{{ (position + 1).toString().padStart(2, '0') }}</span>
+        </div>
+        <div class="timeline-card">
+          <span class="timeline-date">{{ show.nextEpisodeDate || formatDay(show.scheduleDay) }}
+            <small *ngIf="show.scheduleTime"> · {{ show.scheduleTime }} {{ show.timezone || 'UTC' }}</small>
+          </span>
+          <button type="button" class="timeline-story" (click)="showDetails(show)">
+            <span class="timeline-cover" [style.background-image]="show.coverUrl ? 'url(' + show.coverUrl + ')' : null">
+              <span *ngIf="!show.coverUrl" aria-hidden="true">✦</span>
+            </span>
+            <span><strong>{{ show.title }}</strong><small>{{ show.platform || 'Your own watchlist' }} · {{ show.status | lowercase }}</small></span>
+            <span class="timeline-episode">{{ watchedCount(show) }} <small>seen</small></span>
+          </button>
+        </div>
+      </article>
+      <p *ngIf="timelineShows().length === 0" class="series-empty">No stories on the timeline just yet.</p>
+    </section>
+  </ng-container>
+
+  <section *ngIf="selectedShow() as show" class="series-detail" aria-labelledby="series-detail-title">
+    <div class="detail-cover" [style.background-image]="show.coverUrl ? 'url(' + show.coverUrl + ')' : null">
+      <span *ngIf="!show.coverUrl" aria-hidden="true">✦</span>
+      <span class="detail-cover-caption">A STORY IN YOUR ORBIT</span>
+    </div>
+    <div class="detail-content">
+      <div class="detail-heading">
+        <div>
+          <span class="series-eyebrow">{{ formatDay(show.scheduleDay) }}<span *ngIf="show.scheduleTime"> · {{ show.scheduleTime }} {{ show.timezone || 'UTC' }}</span></span>
+          <h2 id="series-detail-title">{{ show.title }}</h2>
+          <p>{{ show.description || 'Every story deserves a place to land.' }}</p>
+        </div>
+        <div class="detail-actions">
+          <button type="button" (click)="beginEdit(show)">Edit profile</button>
+          <button type="button" class="detail-delete" [disabled]="busy()" (click)="deleteShow(show)">Remove</button>
+          <button type="button" class="detail-close" (click)="closeDetails()" aria-label="Close series details">×</button>
+        </div>
+      </div>
+      <div class="detail-facts">
+        <span><small>STATUS</small>{{ show.status | lowercase }}</span>
+        <span><small>PLATFORM</small>{{ show.platform || 'Not set' }}</span>
+        <span><small>YOUR RATING</small>{{ show.rating === null ? '—' : show.rating + ' / 10' }}</span>
+        <span><small>NEXT EPISODE</small>{{ show.nextEpisodeDate || 'Not scheduled' }}</span>
+      </div>
+      <div class="detail-progress" *ngIf="episodeCapacity(show) > 0">
+        <div><span>Season journey</span><strong>{{ watchedCount(show) }} / {{ episodeCapacity(show) }}</strong></div>
+        <span class="progress-track"><i [style.width.%]="progressPercent(show)"></i></span>
+      </div>
+      <section class="episode-log" aria-labelledby="episode-log-title">
+        <div class="episode-log-heading">
+          <div><span class="series-eyebrow">YOUR LITTLE TIME CAPSULE</span><h3 id="episode-log-title">Episodes lived</h3></div>
+          <span>{{ show.watchedEpisodes.length }} saved · {{ formatEpisode(nextEpisode(show)) }} next</span>
+        </div>
+        <form class="episode-form" (submit)="markEpisode($event, show)">
+          <label>Season<input name="season" type="number" min="0" max="200" [value]="nextEpisode(show).season" required></label>
+          <label>Episode<input name="episode" type="number" min="1" max="1000" [value]="nextEpisode(show).episode" required></label>
+          <label class="episode-title-field">Episode title <span>(optional)</span><input name="title" maxlength="160" placeholder="The one with…"></label>
+          <label class="episode-notes-field">Memory <span>(optional)</span><input name="episodeNotes" maxlength="500" placeholder="A favorite line, a feeling, a detail…"></label>
+          <button type="submit" [disabled]="episodeBusy()">Log this episode <span>＋</span></button>
+        </form>
+        <div *ngIf="show.watchedEpisodes.length" class="episode-list">
+          <article *ngFor="let episode of show.watchedEpisodes.slice().reverse()" class="episode-entry">
+            <ng-container *ngIf="editingEpisodeKey() === episodeKey(show, episode); else episodeSummary">
+              <form class="episode-edit-form" (submit)="saveEpisodeEdit($event, show, episode)">
+                <label>Season<input name="season" type="number" min="0" max="200" [value]="episode.season" required></label>
+                <label>Episode<input name="episode" type="number" min="1" max="1000" [value]="episode.episode" required></label>
+                <label class="episode-edit-title">Episode title<input name="title" maxlength="160" [value]="episode.title || ''" placeholder="Episode title"></label>
+                <label class="episode-edit-notes">Memory<input name="episodeNotes" maxlength="500" [value]="episode.notes || ''" placeholder="Your notes"></label>
+                <div class="episode-entry-actions">
+                  <button type="submit" [disabled]="episodeBusy()">Save</button>
+                  <button type="button" (click)="cancelEpisodeEdit()" [disabled]="episodeBusy()">Cancel</button>
+                </div>
+              </form>
+            </ng-container>
+            <ng-template #episodeSummary>
+              <span class="episode-star">✦</span>
+              <div><strong>{{ formatEpisode(episode) }}<span *ngIf="episode.title"> · {{ episode.title }}</span></strong>
+                <small *ngIf="episode.notes">{{ episode.notes }}</small></div>
+              <time [attr.datetime]="episode.watchedAt">{{ episode.watchedAt | date:'mediumDate' }}</time>
+              <button type="button" (click)="beginEpisodeEdit(show, episode)" [disabled]="episodeBusy()"
+                [attr.aria-label]="'Edit ' + formatEpisode(episode)">Edit</button>
+              <button type="button" class="episode-remove" (click)="toggleEpisode(show, episode)" [disabled]="episodeBusy()"
+                [attr.aria-label]="'Remove ' + formatEpisode(episode) + ' from watched episodes'">×</button>
+            </ng-template>
+          </article>
+        </div>
+        <p *ngIf="show.watchedEpisodes.length === 0" class="episode-empty">The first chapter is waiting for you.</p>
+      </section>
+      <p *ngIf="show.notes" class="detail-notes"><span>KEEP CLOSE</span>{{ show.notes }}</p>
+    </div>
+  </section>
+
+  <section *ngIf="formOpen()" class="series-editor" aria-labelledby="series-editor-title">
+    <div class="editor-heading">
+      <div><span class="series-eyebrow">{{ editingId() ? 'REVISIT THE DETAILS' : 'A NEW STORY BEGINS' }}</span>
+        <h2 id="series-editor-title">{{ editingId() ? 'Shape this profile' : 'Add to your orbit' }}</h2></div>
+      <button type="button" (click)="cancelEdit()" aria-label="Close series form">×</button>
+    </div>
+    <form (submit)="saveShow($event)">
+      <div class="editor-grid">
+        <label class="editor-title">Series title<input name="title" required maxlength="120" [value]="editingShow()?.title || ''" placeholder="The story’s name"></label>
+        <label>Status<select name="status" [value]="editingShow()?.status || 'AIRING'">
+          <option value="AIRING">Currently airing</option><option value="HIATUS">On hiatus</option>
+          <option value="COMPLETED">Completed</option><option value="PLANNED">Want to watch</option><option value="DROPPED">Dropped</option>
+        </select></label>
+        <label>Streaming on<input name="platform" maxlength="120" [value]="editingShow()?.platform || ''" placeholder="Netflix, Crunchyroll…"></label>
+        <label>Genres <span>(comma separated)</span><input name="genres" maxlength="640" [value]="editingShow()?.genres?.join(', ') || ''" placeholder="Drama, sci-fi, comfort watch"></label>
+        <label>Release day<select name="scheduleDay" [value]="editingShow()?.scheduleDay || 'FLEXIBLE'">
+          <option value="FLEXIBLE">Whenever I watch</option><option *ngFor="let day of weekDays" [value]="day.key">{{ day.label }}</option>
+        </select></label>
+        <label>Release time<input name="scheduleTime" type="time" [value]="editingShow()?.scheduleTime || ''"></label>
+        <label>Timezone<input name="timezone" maxlength="64" [value]="editingShow()?.timezone || 'UTC'" placeholder="Europe/Madrid"></label>
+        <label>Next episode date<input name="nextEpisodeDate" type="date" [value]="editingShow()?.nextEpisodeDate || ''"></label>
+        <label>Seasons<input name="seasons" type="number" min="0" max="200" [value]="editingShow()?.seasons ?? 0"></label>
+        <label>Episodes per season<input name="episodesPerSeason" type="number" min="0" max="1000" [value]="editingShow()?.episodesPerSeason ?? 0"></label>
+        <label>Your rating <span>(out of 10)</span><input name="rating" type="number" min="0" max="10" step="0.5" [value]="editingShow()?.rating ?? ''" placeholder="—"></label>
+        <label>First watched<input name="startDate" type="date" [value]="editingShow()?.startDate || ''"></label>
+        <label>Finished on<input name="finishDate" type="date" [value]="editingShow()?.finishDate || ''"></label>
+        <label class="editor-description">A little about it<textarea name="description" maxlength="4000" rows="2" [value]="editingShow()?.description || ''" placeholder="What makes this one yours?"></textarea></label>
+        <label class="editor-notes">Private notes<textarea name="notes" maxlength="10000" rows="3" [value]="editingShow()?.notes || ''" placeholder="Thoughts, theories, where you left off…"></textarea></label>
+        <label class="editor-cover">Cover art <span>(JPEG, PNG or WebP · up to 5 MB)</span><input name="cover" type="file" accept="image/jpeg,image/png,image/webp"></label>
+      </div>
+      <div class="editor-footer"><span>Episode history is kept when you edit a profile.</span>
+        <button type="submit" [disabled]="busy()">{{ busy() ? 'Saving…' : 'Save this story' }} <span>↗</span></button></div>
+    </form>
+  </section>
+</section>

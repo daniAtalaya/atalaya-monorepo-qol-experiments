@@ -1,6 +1,8 @@
 .data/youtube/HELP.md
 target/
 .data/
+/.data-before-restore-*/
+/.atalaya-restore-*/
 !**/src/main/**/target/
 !**/src/test/**/target/
 
@@ -37,6 +39,8 @@ build/
 ### Adhoc ###
 /gateway/src/main/resources/application.yaml
 /youtube-service/src/main/resources/application.yaml
+/series-service/src/main/resources/application.yaml
+/preferences-service/src/main/resources/application.yaml
 /music-library/.angular/
 /music-library/dist/
 /music-library/package-lock.json

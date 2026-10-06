@@ -13,6 +13,9 @@ import {
 } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { MusicLibraryApiService } from './music-library-api.service';
+import { SeriesTrackerComponent } from './series-tracker.component';
+import { RepeatControlComponent } from './repeat-control.component';
+import { PanicBackupComponent } from './panic-backup.component';
 import {
   MostListenedTrack,
   MusicPlayerUser,
@@ -20,6 +23,7 @@ import {
   PlayerThemeCatalog,
   PlayerThemeDraft,
   PlayerThemeOption,
+  RepeatMode,
   ShuffleMode,
   YoutubeSettings
 } from './music-library.models';
@@ -36,7 +40,7 @@ interface InaccessibleMetadataEntry {
 @Component({
   selector: 'atalaya-root',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, SeriesTrackerComponent, RepeatControlComponent, PanicBackupComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.css'
 })
@@ -48,10 +52,12 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly errorMessage = signal('');
   readonly nowPlaying = signal<MusicLibraryNode | null>(null);
   readonly shuffleMode = signal<ShuffleMode>('off');
+  readonly repeatMode = signal<RepeatMode>('off');
   readonly shuffleDepth = signal(1);
   readonly shuffleMessage = signal('');
   readonly emptyMessage = signal('');
   readonly activeTab = signal<'library' | 'most-played' | 'service'>('library');
+  readonly activeWorkspace = signal<'music' | 'series'>('music');
   readonly activeUsername = signal('');
   readonly knownUsers = signal<MusicPlayerUser[]>([]);
   readonly userMode = signal<'existing' | 'new'>('existing');
@@ -103,36 +109,30 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   private playbackQueueRequest = 0;
   private lastTrackPath = '';
   private countedPlaybackKey = '';
+  private playbackTransitionRequest = 0;
   private audioContext?: AudioContext;
   private analyser?: AnalyserNode;
   private frequencyData?: Uint8Array<ArrayBuffer>;
   private animationFrame = 0;
   private visualizerResizeObserver?: ResizeObserver;
-  private readonly volumeStorageKey = 'atalaya.music.volume';
   private readonly usernameStorageKey = 'atalaya.music.username';
+  private volumeSaveTimer?: number;
+  private savedVolume?: number;
 
   private get audioPlayer(): HTMLAudioElement | undefined {
     return this.playerRef?.nativeElement;
   }
 
   ngOnInit(): void {
+    this.restoreWorkspaceFromPath();
     this.restoreMusicPlayerUser();
   }
 
   ngAfterViewInit(): void {
-    try {
-      const player = this.audioPlayer;
-      if (player) this.playerVolume.set(player.volume);
-      const storedVolume = localStorage.getItem(this.volumeStorageKey);
-      if (storedVolume === null) return;
-      const volume = Number(storedVolume);
-      if (Number.isFinite(volume) && volume >= 0 && volume <= 1 && player) {
-        player.volume = volume;
-        this.playerVolume.set(volume);
-      }
-    } catch (error: unknown) {
-      this.errorMessage.set(`Could not restore the saved volume: ${this.describeError(error)}`);
-    }
+    const player = this.audioPlayer;
+    if (!player) return;
+    player.volume = this.playerVolume();
+    this.playerVolume.set(player.volume);
   }
 
   ngOnDestroy(): void {
@@ -219,6 +219,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     const player = this.audioPlayer;
     if (!player || !this.nowPlaying()) return;
     if (player.paused) {
+      if (player.ended) this.countedPlaybackKey = '';
       void player.play().catch((error: unknown) => {
         this.errorMessage.set(`Playback could not resume: ${this.describeError(error)}`);
       });
@@ -228,6 +229,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   playPreviousTrack(): void {
+    this.playbackTransitionRequest++;
     const player = this.audioPlayer;
     if (!player || !this.nowPlaying()) return;
     if (this.historyIndex > 0) {
@@ -276,6 +278,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   playNextTrack(): void {
+    this.playbackTransitionRequest++;
     if (!this.nowPlaying()) return;
     if (this.historyIndex + 1 < this.playbackHistory.length) {
       this.historyIndex++;
@@ -340,6 +343,44 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 
   onPlaybackEnded(): void {
     this.isPlaying.set(false);
+    const request = ++this.playbackTransitionRequest;
+    const track = this.nowPlaying();
+    const mode = this.repeatMode();
+    if (track && mode !== 'off') {
+      this.api.playbackEnded(mode).subscribe({
+        next: (transition) => {
+          if (request !== this.playbackTransitionRequest || this.nowPlaying()?.path !== track.path
+            || !this.audioPlayer?.ended) return;
+          this.repeatMode.set(transition.repeatMode);
+          if (transition.replay) {
+            // Keep the queue and shuffle position, but start a fresh listen.
+            this.countedPlaybackKey = '';
+            this.audioPlayer.currentTime = 0;
+            void this.audioPlayer.play().catch((error: unknown) => {
+              this.errorMessage.set(`Replay could not start: ${this.describeError(error)}`);
+            });
+          } else {
+            this.advanceAfterPlayback();
+          }
+        },
+        error: (error: unknown) => {
+          if (request === this.playbackTransitionRequest) {
+            this.errorMessage.set(`Repeat could not start: ${this.describeApiError(error)}. Press play to retry.`);
+          }
+        }
+      });
+      return;
+    }
+    this.advanceAfterPlayback();
+  }
+
+  cycleRepeatMode(): void {
+    const modes: RepeatMode[] = ['off', 'once', 'infinite'];
+    this.repeatMode.set(modes[(modes.indexOf(this.repeatMode()) + 1) % modes.length]);
+    if (this.audioPlayer?.ended) this.onPlaybackEnded();
+  }
+
+  private advanceAfterPlayback(): void {
     if (this.shuffleMode() === 'off') {
       this.playNextTrack();
       return;
@@ -372,9 +413,28 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     if (tab === 'most-played') this.loadListenRanking();
   }
 
+  selectWorkspace(workspace: 'music' | 'series'): void {
+    this.activeWorkspace.set(workspace);
+    window.location.hash = workspace === 'series' ? '#/series' : '#/music';
+  }
+
+  restoreWorkspaceFromPath(): void {
+    this.activeWorkspace.set(window.location.hash === '#/series' ? 'series' : 'music');
+  }
+
+  @HostListener('window:popstate')
+  onWorkspaceHistoryNavigation(): void {
+    this.restoreWorkspaceFromPath();
+  }
+
+  @HostListener('window:hashchange')
+  onWorkspaceHashNavigation(): void {
+    this.restoreWorkspaceFromPath();
+  }
+
   restoreMusicPlayerUser(): void {
     this.userLoading.set(true);
-    this.http.get<MusicPlayerUser[]>('/api/youtube/users').subscribe({
+    this.http.get<MusicPlayerUser[]>('/api/preferences/users').subscribe({
       next: (users) => {
         this.knownUsers.set(users);
         let savedUsername = '';
@@ -429,7 +489,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   activateMusicPlayerUser(username: string): void {
     this.userBusy.set(true);
     this.userError.set('');
-    this.http.post<MusicPlayerUser>('/api/youtube/users', { username }).subscribe({
+    this.http.post<MusicPlayerUser>('/api/preferences/users', { username }).subscribe({
       next: (user) => {
         try {
           localStorage.setItem(this.usernameStorageKey, user.username);
@@ -447,6 +507,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
         this.loadLibrary();
         this.loadYoutubeSettings();
         this.loadPlayerTheme();
+        this.loadPlayerSettings();
       },
       error: (error: unknown) => {
         this.userBusy.set(false);
@@ -457,6 +518,10 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   logoutMusicPlayerUser(): void {
+    this.playbackTransitionRequest++;
+    this.repeatMode.set('off');
+    this.stopPlayer();
+    this.nowPlaying.set(null);
     try {
       localStorage.removeItem(this.usernameStorageKey);
     } catch (error: unknown) {
@@ -467,10 +532,15 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     this.availableThemes.set([]);
     this.activeTheme.set(null);
     this.listenRanking.set([]);
+    if (this.volumeSaveTimer !== undefined) {
+      window.clearTimeout(this.volumeSaveTimer);
+      this.volumeSaveTimer = undefined;
+    }
+    this.savedVolume = undefined;
     this.activeTab.set('library');
     this.userError.set('');
     this.userLoading.set(true);
-    this.http.get<MusicPlayerUser[]>('/api/youtube/users').subscribe({
+    this.http.get<MusicPlayerUser[]>('/api/preferences/users').subscribe({
       next: (users) => {
         this.knownUsers.set(users);
         this.selectedLoginUsername.set(users[0]?.username ?? '');
@@ -484,14 +554,44 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  prepareForRestore(): void {
+    this.playbackTransitionRequest++;
+    this.playbackQueueRequest++;
+    this.repeatMode.set('off');
+    this.stopPlayer();
+    this.nowPlaying.set(null);
+    if (this.volumeSaveTimer !== undefined) window.clearTimeout(this.volumeSaveTimer);
+    this.volumeSaveTimer = undefined;
+  }
+
   private userHeaders(): HttpHeaders {
     return new HttpHeaders({ 'X-Atalaya-Username': this.activeUsername() });
   }
 
   loadPlayerTheme(): void {
-    this.http.get<PlayerThemeCatalog>('/api/youtube/player-theme', { headers: this.userHeaders() }).subscribe({
+    this.http.get<PlayerThemeCatalog>('/api/preferences/player-theme', { headers: this.userHeaders() }).subscribe({
       next: (catalog) => this.applyThemeCatalog(catalog),
       error: (error: unknown) => this.themeStatus.set(`Could not load themes: ${this.describeApiError(error)}`)
+    });
+  }
+
+  loadPlayerSettings(): void {
+    const username = this.activeUsername();
+    if (!username) return;
+    this.http.get<{ volume: number | null }>('/api/preferences/player-settings', { headers: this.userHeaders() }).subscribe({
+      next: (settings) => {
+        if (this.activeUsername() !== username) return;
+        if (settings.volume === null || !Number.isFinite(settings.volume) || settings.volume < 0 || settings.volume > 1) return;
+        this.savedVolume = settings.volume;
+        this.playerVolume.set(settings.volume);
+        const player = this.audioPlayer;
+        if (player) player.volume = settings.volume;
+      },
+      error: (error: unknown) => {
+        if (this.activeUsername() === username) {
+          this.errorMessage.set(`Could not load player preferences: ${this.describeApiError(error)}`);
+        }
+      }
     });
   }
 
@@ -499,7 +599,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.themeBusy() || themeId === this.selectedThemeId()) return;
     this.themeBusy.set(true);
     this.themeStatus.set('Applying theme…');
-    this.http.put<PlayerThemeCatalog>('/api/youtube/player-theme/selection', { themeId }, { headers: this.userHeaders() }).subscribe({
+    this.http.put<PlayerThemeCatalog>('/api/preferences/player-theme/selection', { themeId }, { headers: this.userHeaders() }).subscribe({
       next: (catalog) => {
         this.applyThemeCatalog(catalog);
         this.themeStatus.set('Theme saved');
@@ -641,8 +741,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     this.themeBusy.set(true);
     this.themeStatus.set(themeId ? 'Updating theme…' : 'Creating theme…');
     const request = themeId
-      ? this.http.put<PlayerThemeCatalog>(`/api/youtube/player-theme/${encodeURIComponent(themeId)}`, draft, { headers: this.userHeaders() })
-      : this.http.post<PlayerThemeCatalog>('/api/youtube/player-theme', draft, { headers: this.userHeaders() });
+      ? this.http.put<PlayerThemeCatalog>(`/api/preferences/player-theme/${encodeURIComponent(themeId)}`, draft, { headers: this.userHeaders() })
+      : this.http.post<PlayerThemeCatalog>('/api/preferences/player-theme', draft, { headers: this.userHeaders() });
     request.subscribe({
       next: (catalog) => {
         this.applyThemeCatalog(catalog);
@@ -661,7 +761,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.themeBusy() || !window.confirm(`Delete the "${theme.name}" theme?`)) return;
     this.themeBusy.set(true);
     this.themeStatus.set('Deleting theme…');
-    this.http.delete<PlayerThemeCatalog>(`/api/youtube/player-theme/${encodeURIComponent(theme.id)}`, { headers: this.userHeaders() }).subscribe({
+    this.http.delete<PlayerThemeCatalog>(`/api/preferences/player-theme/${encodeURIComponent(theme.id)}`, { headers: this.userHeaders() }).subscribe({
       next: (catalog) => {
         this.applyThemeCatalog(catalog);
         if (this.editingThemeId() === theme.id) this.cancelThemeEdit();
@@ -678,7 +778,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   loadListenRanking(): void {
     this.rankingLoading.set(true);
     this.rankingError.set('');
-    this.http.get<MostListenedTrack[]>('/api/youtube/music/most-listened', { headers: this.userHeaders() }).subscribe({
+    this.http.get<MostListenedTrack[]>('/api/preferences/music/most-listened', { headers: this.userHeaders() }).subscribe({
       next: (tracks) => {
         this.listenRanking.set(tracks);
         this.rankingLoading.set(false);
@@ -753,7 +853,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     const countedPlaybackKey = username && track ? JSON.stringify([username, track.path]) : '';
     if (player && !player.paused && track && username && this.countedPlaybackKey !== countedPlaybackKey) {
       this.countedPlaybackKey = countedPlaybackKey;
-      this.http.post<MostListenedTrack>('/api/youtube/music/listens', { path: track.path }, { headers: this.userHeaders() }).subscribe({
+      this.http.post<MostListenedTrack>('/api/preferences/music/listens', { path: track.path }, { headers: this.userHeaders() }).subscribe({
         next: () => {
           if (this.activeTab() === 'most-played') this.loadListenRanking();
         },
@@ -807,13 +907,26 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 
   saveVolume(): void {
     const player = this.audioPlayer;
-    if (!player) return;
+    const username = this.activeUsername();
+    if (!player || !username) return;
     this.playerVolume.set(player.volume);
-    try {
-      localStorage.setItem(this.volumeStorageKey, String(player.volume));
-    } catch (error: unknown) {
-      this.errorMessage.set(`Could not save the volume setting: ${this.describeError(error)}`);
-    }
+    if (this.savedVolume === player.volume) return;
+    if (this.volumeSaveTimer !== undefined) window.clearTimeout(this.volumeSaveTimer);
+    const volume = player.volume;
+    this.volumeSaveTimer = window.setTimeout(() => {
+      this.volumeSaveTimer = undefined;
+      const headers = new HttpHeaders({ 'X-Atalaya-Username': username });
+      this.http.put('/api/preferences/player-settings', { volume }, { headers }).subscribe({
+        next: () => {
+          if (this.activeUsername() === username) this.savedVolume = volume;
+        },
+        error: (error: unknown) => {
+          if (this.activeUsername() === username) {
+            this.errorMessage.set(`Could not save player preferences: ${this.describeApiError(error)}`);
+          }
+        }
+      });
+    }, 300);
   }
 
   toggleShuffle(): void {
@@ -988,6 +1101,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private startPlayback(track: MusicLibraryNode, resetQueueRequest = true): void {
+    this.playbackTransitionRequest++;
+    if (this.nowPlaying()?.path !== track.path && this.repeatMode() === 'once') this.repeatMode.set('off');
     if (resetQueueRequest) this.playbackQueueRequest++;
     this.stopPlayer();
     this.nowPlaying.set(track);

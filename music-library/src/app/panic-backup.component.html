@@ -1,0 +1,77 @@
+<div class="backup-triggers">
+  <button type="button" class="backup-trigger" (click)="open('backup')" [disabled]="busy()"
+    title="Download a panic backup of all Atalaya data">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M4 16v4h16v-4"/></svg>
+    <span>Panic backup</span>
+  </button>
+  <button type="button" class="restore-trigger" (click)="open('restore')" [disabled]="busy()"
+    aria-label="Restore an Atalaya backup" title="Restore a backup">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m-4 4 4-4 4 4M4 16v4h16v-4"/></svg>
+  </button>
+</div>
+
+<dialog #dialog (cancel)="onCancel($event)" aria-labelledby="backup-title">
+  <div class="backup-card">
+    <div class="backup-heading">
+      <div><span class="eyebrow">YOUR DATA, WITH YOU</span><h2 id="backup-title">A little peace of mind.</h2></div>
+      <button type="button" class="close-button" (click)="close()" [disabled]="busy() || !!result()" aria-label="Close backup panel">×</button>
+    </div>
+    <p class="backup-copy">One ZIP for your entire Atalaya collection: music, profiles, listening history, series, and every other folder in <code>.data</code>.</p>
+    <div class="backup-tabs" role="group" aria-label="Backup action" *ngIf="!result()">
+      <button type="button" [class.active]="tab() === 'backup'" [attr.aria-pressed]="tab() === 'backup'"
+        [disabled]="busy()" (click)="selectTab('backup')">Download backup</button>
+      <button type="button" [class.active]="tab() === 'restore'" [attr.aria-pressed]="tab() === 'restore'"
+        [disabled]="busy()" (click)="selectTab('restore')">Restore from ZIP</button>
+    </div>
+
+    <section *ngIf="tab() === 'backup'">
+      <div class="backup-summary" *ngIf="download() as backup">
+        <span class="status-icon" aria-hidden="true">✓</span>
+        <div><strong>{{ backup.fileName }}</strong><span>{{ backup.fileCount | number }} files · {{ backup.sizeBytes / 1048576 | number:'1.1-1' }} MB</span></div>
+      </div>
+      <p class="backup-hint">For a consistent snapshot, pause downloads and finish any edits first. Store the ZIP somewhere outside this PC.</p>
+      <button type="button" class="primary-button" [disabled]="busy()" (click)="createBackup()">
+        {{ busy() ? 'Preparing your backup…' : download() ? 'Create another backup' : 'Download entire .data as ZIP' }}
+      </button>
+    </section>
+
+    <section *ngIf="tab() === 'restore' && !result()">
+      <input #fileInput type="file" accept=".zip,application/zip" hidden (change)="selectFile($event)">
+      <button type="button" class="drop-zone" [class.dragging]="dragging()" [disabled]="busy()"
+        (click)="browse()" (drop)="drop($event)" (dragover)="dragOver($event)" (dragleave)="dragging.set(false)">
+        <span class="drop-icon" aria-hidden="true">↑</span>
+        <strong>{{ preview() ? 'Choose a different backup' : 'Choose your backup ZIP' }}</strong>
+        <span>Click to browse, or drop a file here</span>
+      </button>
+      <div class="backup-summary" *ngIf="preview() as backup">
+        <span class="status-icon" aria-hidden="true">✓</span>
+        <div><strong>Verified · {{ backup.createdAt | date:'medium' }}</strong>
+          <span>{{ backup.fileCount | number }} files · {{ backup.sizeBytes / 1048576 | number:'1.1-1' }} MB expanded</span>
+          <span class="folder-list">{{ backup.folders.join(' · ') || 'Empty data folder' }}</span></div>
+      </div>
+      <div *ngIf="preview()" class="restore-review">
+        <p>This replaces the entire <code>.data</code> folder. Your current folder will be kept alongside it for recovery.</p>
+        <p>Stop YouTube, Series, and any other services that write data. Keep preferences-service running for this restore, then restart the other services afterward.</p>
+        <label class="restore-check"><input type="checkbox" [checked]="servicesStopped()" [disabled]="busy()"
+          (change)="servicesStopped.set($any($event.target).checked)">I have stopped the other services and want to replace my data.</label>
+        <button type="button" class="primary-button restore-button" [disabled]="busy() || !servicesStopped()" (click)="restore()">
+          {{ busy() ? 'Restoring…' : 'Replace .data with this backup' }}
+        </button>
+      </div>
+    </section>
+
+    <section *ngIf="result() as restored" class="restore-complete">
+      <span class="status-icon" aria-hidden="true">✓</span>
+      <h3>{{ restored.fileCount | number }} files restored</h3>
+      <p *ngIf="restored.recoveryDirectory">Your previous data is safe at <code>{{ restored.recoveryDirectory }}</code>.</p>
+      <p>Restart the other services to load their restored settings, then refresh the app.</p>
+      <button type="button" class="primary-button" (click)="reopen()">Reopen Atalaya</button>
+    </section>
+    <div *ngIf="busy()" class="backup-progress" role="progressbar" aria-label="Backup operation progress"
+      [attr.aria-valuenow]="uploadProgress()" aria-valuemin="0" aria-valuemax="100">
+      <span [class.indeterminate]="uploadProgress() === null" [style.width.%]="uploadProgress() ?? 40"></span>
+    </div>
+    <p *ngIf="message()" class="backup-status" role="status">{{ message() }}</p>
+    <p *ngIf="error()" class="backup-error" role="alert">{{ error() }}</p>
+  </div>
+</dialog>

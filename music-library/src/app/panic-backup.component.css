@@ -1,0 +1,53 @@
+:host { display: inline-flex; }
+.backup-triggers { align-items: center; display: flex; gap: 3px; }
+button { font: inherit; cursor: pointer; }
+button:disabled { cursor: default; opacity: .5; }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.backup-trigger, .restore-trigger { align-items: center; background: transparent; border: 1px solid var(--line);
+  border-radius: 9px; color: var(--text); display: inline-flex; font-size: 10px; gap: 6px; min-height: 36px; padding: 7px 9px; }
+.restore-trigger { border-color: transparent; padding: 7px; }
+.backup-trigger:hover:not(:disabled), .restore-trigger:hover:not(:disabled) { background: var(--surface); border-color: var(--accent); }
+svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+dialog { background: var(--surface); border: 1px solid var(--line); border-radius: 22px; color: var(--text);
+  max-height: 90dvh; max-width: min(560px, calc(100vw - 28px)); padding: 0; width: 560px; box-shadow: 0 28px 100px #0008; }
+dialog::backdrop { background: #0009; backdrop-filter: blur(7px); }
+.backup-card { padding: clamp(20px, 4vw, 32px); }
+.backup-heading { align-items: flex-start; display: flex; justify-content: space-between; gap: 12px; }
+.eyebrow { color: var(--accent); font-size: 9px; letter-spacing: .13em; }
+h2 { font: 400 28px/1.2 Georgia, serif; margin: 10px 0 12px; }
+.close-button { background: transparent; border: 0; color: var(--muted); font-size: 25px; min-width: 36px; min-height: 36px; }
+.backup-copy, .backup-hint, .restore-review p, .restore-complete p { color: var(--muted); font-size: 12px; line-height: 1.7; }
+.backup-tabs { background: var(--background); border: 1px solid var(--line); border-radius: 12px; display: flex; gap: 4px; margin: 22px 0; padding: 4px; }
+.backup-tabs button { background: transparent; border: 0; border-radius: 8px; color: var(--muted); flex: 1; font-size: 12px; padding: 11px 8px; }
+.backup-tabs button.active { background: var(--surface); color: var(--text); box-shadow: 0 2px 8px #0002; }
+.backup-summary { align-items: flex-start; background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+  border: 1px solid var(--line); border-radius: 12px; display: flex; gap: 12px; margin: 18px 0; padding: 16px; }
+.status-icon { align-items: center; border: 1px solid var(--accent); border-radius: 50%; color: var(--accent);
+  display: inline-flex; flex-shrink: 0; height: 27px; justify-content: center; width: 27px; }
+.backup-summary div { display: grid; gap: 5px; min-width: 0; }
+.backup-summary strong { font-size: 12px; overflow-wrap: anywhere; }
+.backup-summary div > span { color: var(--muted); font-size: 11px; line-height: 1.6; }
+.folder-list { overflow-wrap: anywhere; }
+.primary-button { background: var(--accent); border: 0; border-radius: 10px; color: var(--background);
+  font-size: 12px; font-weight: 600; margin-top: 10px; min-height: 44px; padding: 12px 18px; width: 100%; }
+.drop-zone { align-items: center; background: var(--background); border: 1px dashed var(--line); border-radius: 14px;
+  color: var(--text); display: flex; flex-direction: column; gap: 9px; padding: 26px 12px; width: 100%; }
+.drop-zone:hover:not(:disabled), .drop-zone.dragging { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
+.drop-icon { color: var(--accent); font-size: 24px; }
+.drop-zone strong { font-size: 13px; }
+.drop-zone > span:last-child { color: var(--muted); font-size: 11px; }
+.restore-review { border-top: 1px solid var(--line); margin-top: 18px; padding-top: 4px; }
+.restore-check { align-items: flex-start; color: var(--text); display: flex; font-size: 12px; gap: 10px; line-height: 1.6; margin: 18px 0 8px; }
+.restore-check input { accent-color: var(--accent); flex-shrink: 0; margin-top: 4px; }
+.backup-progress { background: var(--line); border-radius: 3px; height: 4px; margin: 20px 0 12px; overflow: hidden; }
+.backup-progress span { background: var(--accent); display: block; height: 100%; transition: width .2s; }
+.backup-progress .indeterminate { animation: progress 1.8s infinite ease-in-out; }
+@keyframes progress { from { transform: translateX(-100%); } to { transform: translateX(350%); } }
+.backup-status, .backup-error { font-size: 12px; line-height: 1.6; margin-bottom: 0; }
+.backup-status { color: var(--muted); }
+.backup-error { background: color-mix(in srgb, #f66 8%, var(--surface)); border-left: 2px solid #e88;
+  border-radius: 4px; color: var(--text); padding: 12px; }
+.restore-complete { text-align: center; }
+.restore-complete code { display: block; font-size: 11px; margin-top: 8px; overflow-wrap: anywhere; }
+@media (max-width: 480px) { .backup-trigger span { display: none; } .backup-trigger { padding: 8px; } }
+@media (prefers-reduced-motion: reduce) { .backup-progress .indeterminate { animation: none; width: 100% !important; } }

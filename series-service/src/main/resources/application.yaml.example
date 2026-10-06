@@ -1,0 +1,13 @@
+spring:
+  application:
+    name: series-service
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 5MB
+server:
+  port: 8082
+
+toolbox:
+  series:
+    storage-directory: ../.data/series

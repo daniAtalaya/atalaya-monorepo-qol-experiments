@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: preferences-service
+  servlet:
+    multipart:
+      max-file-size: 20GB
+      max-request-size: 20GB
+      file-size-threshold: 0
+  mvc:
+    async:
+      request-timeout: 3600000
+server:
+  port: 8083
+
+toolbox:
+  backup:
+    # Shared root, including every current/future service namespace.
+    data-directory: ../.data
+    max-expanded-bytes: 1099511627776 # 1 TiB; adjust to available disk capacity.
+  preferences:
+    storage-directory: ../.data/preferences
+    legacy-user-files: ../.data/music/music-player-users.json,../.data/music-player-users.json
+    legacy-theme-file: ../.data/music/music-player-theme.json
