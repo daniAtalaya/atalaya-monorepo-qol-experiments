@@ -45,69 +45,81 @@ public class PlayerThemeService {
     }
 
     @PostConstruct
-    public synchronized void loadSavedThemes() {
-        themes = defaultThemes();
-        selectedThemeId = "midnight";
-        if (!Files.exists(themeFile)) return;
-        try {
-            PlayerThemePreference saved = objectMapper.readValue(themeFile.toFile(), PlayerThemePreference.class);
-            if (saved.themes() != null && !saved.themes().isEmpty()) {
-                List<PlayerThemeOption> loaded = saved.themes().stream().map(this::validate).toList();
-                if (loaded.stream().map(PlayerThemeOption::id).distinct().count() != loaded.size()) {
-                    throw new IllegalArgumentException("Theme IDs must be unique.");
+    public void loadSavedThemes() {
+        synchronized (userService) {
+            themes = defaultThemes();
+            selectedThemeId = "midnight";
+            if (!Files.exists(themeFile)) return;
+            try {
+                PlayerThemePreference saved = objectMapper.readValue(themeFile.toFile(), PlayerThemePreference.class);
+                if (saved.themes() != null && !saved.themes().isEmpty()) {
+                    List<PlayerThemeOption> loaded = saved.themes().stream().map(this::validate).toList();
+                    if (loaded.stream().map(PlayerThemeOption::id).distinct().count() != loaded.size()) {
+                        throw new IllegalArgumentException("Theme IDs must be unique.");
+                    }
+                    themes = loaded;
                 }
-                themes = loaded;
+                selectedThemeId = themes.stream().anyMatch(theme -> theme.id().equals(saved.selectedThemeId()))
+                    ? saved.selectedThemeId() : themes.getFirst().id();
+            } catch (IOException | IllegalArgumentException exception) {
+                throw new IllegalStateException("Could not load saved music player themes from " + themeFile, exception);
             }
-            selectedThemeId = themes.stream().anyMatch(theme -> theme.id().equals(saved.selectedThemeId()))
-                ? saved.selectedThemeId() : themes.getFirst().id();
-        } catch (IOException | IllegalArgumentException exception) {
-            throw new IllegalStateException("Could not load saved music player themes from " + themeFile, exception);
         }
     }
 
-    public synchronized ThemeCatalog current(String username) {
-        String selected = userService.selectedTheme(username, selectedThemeId);
-        String resolved = themes.stream().anyMatch(theme -> theme.id().equals(selected)) ? selected : themes.getFirst().id();
-        return new ThemeCatalog(resolved, List.copyOf(themes));
+    public ThemeCatalog current(String username) {
+        synchronized (userService) {
+            String selected = userService.selectedTheme(username, selectedThemeId);
+            String resolved = themes.stream().anyMatch(theme -> theme.id().equals(selected)) ? selected : themes.getFirst().id();
+            return new ThemeCatalog(resolved, List.copyOf(themes));
+        }
     }
 
-    public synchronized ThemeCatalog select(String username, String themeId) {
-        requireTheme(themeId);
-        userService.selectTheme(username, themeId);
-        return current(username);
+    public ThemeCatalog select(String username, String themeId) {
+        synchronized (userService) {
+            requireTheme(themeId);
+            userService.selectTheme(username, themeId);
+            return current(username);
+        }
     }
 
-    public synchronized ThemeCatalog create(String username, PlayerThemeRequest request) {
-        PlayerThemeOption theme = toTheme(request, uniqueId(request.name()));
-        List<PlayerThemeOption> updated = new ArrayList<>(themes);
-        updated.add(theme);
-        persist(updated, selectedThemeId);
-        themes = List.copyOf(updated);
-        userService.selectTheme(username, theme.id());
-        return current(username);
+    public ThemeCatalog create(String username, PlayerThemeRequest request) {
+        synchronized (userService) {
+            PlayerThemeOption theme = toTheme(request, uniqueId(request.name()));
+            List<PlayerThemeOption> updated = new ArrayList<>(themes);
+            updated.add(theme);
+            persist(updated, selectedThemeId);
+            themes = List.copyOf(updated);
+            userService.selectTheme(username, theme.id());
+            return current(username);
+        }
     }
 
-    public synchronized ThemeCatalog update(String username, String themeId, PlayerThemeRequest request) {
-        requireTheme(themeId);
-        PlayerThemeOption theme = toTheme(request, themeId);
-        List<PlayerThemeOption> updated = themes.stream()
-            .map(existing -> existing.id().equals(themeId) ? theme : existing)
-            .toList();
-        persist(updated, selectedThemeId);
-        themes = updated;
-        return current(username);
+    public ThemeCatalog update(String username, String themeId, PlayerThemeRequest request) {
+        synchronized (userService) {
+            requireTheme(themeId);
+            PlayerThemeOption theme = toTheme(request, themeId);
+            List<PlayerThemeOption> updated = themes.stream()
+                .map(existing -> existing.id().equals(themeId) ? theme : existing)
+                .toList();
+            persist(updated, selectedThemeId);
+            themes = updated;
+            return current(username);
+        }
     }
 
-    public synchronized ThemeCatalog delete(String username, String themeId) {
-        requireTheme(themeId);
-        if (themes.size() == 1) throw new IllegalArgumentException("At least one theme must remain.");
-        List<PlayerThemeOption> updated = themes.stream().filter(theme -> !theme.id().equals(themeId)).toList();
-        String next = selectedThemeId.equals(themeId) ? updated.getFirst().id() : selectedThemeId;
-        persist(updated, next);
-        themes = updated;
-        selectedThemeId = next;
-        userService.replaceDeletedTheme(themeId, next);
-        return current(username);
+    public ThemeCatalog delete(String username, String themeId) {
+        synchronized (userService) {
+            requireTheme(themeId);
+            if (themes.size() == 1) throw new IllegalArgumentException("At least one theme must remain.");
+            List<PlayerThemeOption> updated = themes.stream().filter(theme -> !theme.id().equals(themeId)).toList();
+            String next = selectedThemeId.equals(themeId) ? updated.getFirst().id() : selectedThemeId;
+            persist(updated, next);
+            themes = updated;
+            selectedThemeId = next;
+            userService.replaceDeletedTheme(themeId, next);
+            return current(username);
+        }
     }
 
     private PlayerThemeOption toTheme(PlayerThemeRequest request, String id) {

@@ -3,6 +3,8 @@ package com.atalaya.toolbox.gateway;
 import com.atalaya.toolbox.gateway.configuration.GatewayProperties;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
@@ -11,6 +13,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -21,6 +24,7 @@ import java.util.Set;
 
 @RestController
 public class GatewayProxyController {
+    private static final Logger log = LoggerFactory.getLogger(GatewayProxyController.class);
 
     private static final Set<String> HOP_BY_HOP_HEADERS = Set.of(
             "connection", "keep-alive", "proxy-authenticate", "proxy-authorization",
@@ -37,6 +41,9 @@ public class GatewayProxyController {
     /** Large archives and multipart uploads must pass through without byte-array buffering. */
     @RequestMapping({"/api/preferences/backups", "/api/preferences/backups/**"})
     public void proxyBackups(HttpServletRequest incoming, HttpServletResponse outgoing) throws IOException {
+        long started = System.nanoTime();
+        log.info("Panic backup proxy started: method={}, path={}, requestBytes={}",
+            incoming.getMethod(), incoming.getRequestURI(), incoming.getContentLengthLong());
         GatewayProperties.Service service = properties.getServices().get("preferences");
         if (service == null || service.baseUrl() == null || service.baseUrl().isBlank()) {
             throw new UnknownGatewayServiceException("preferences");
@@ -49,20 +56,30 @@ public class GatewayProxyController {
         if (incoming.getContentLengthLong() > 0 || incoming.getHeader("Transfer-Encoding") != null) {
             request.body(output -> StreamUtils.copy(incoming.getInputStream(), output));
         }
-        request.exchange((clientRequest, response) -> {
-            outgoing.setStatus(response.getStatusCode().value());
-            response.getHeaders().forEach((name, values) -> {
-                if (!HOP_BY_HOP_HEADERS.contains(name.toLowerCase(Locale.ROOT))) {
-                    values.forEach(value -> outgoing.addHeader(name, value));
+        try {
+            request.exchange((clientRequest, response) -> {
+                outgoing.setStatus(response.getStatusCode().value());
+                response.getHeaders().forEach((name, values) -> {
+                    if (!HOP_BY_HOP_HEADERS.contains(name.toLowerCase(Locale.ROOT))) {
+                        values.forEach(value -> outgoing.addHeader(name, value));
+                    }
+                });
+                try {
+                    long bytes = response.getBody().transferTo(outgoing.getOutputStream());
+                    outgoing.flushBuffer();
+                    log.info("Panic backup proxy finished: method={}, path={}, status={}, responseBytes={}, durationMs={}",
+                        incoming.getMethod(), incoming.getRequestURI(), response.getStatusCode().value(), bytes,
+                        (System.nanoTime() - started) / 1_000_000);
+                } catch (IOException exception) {
+                    throw new UncheckedIOException(exception);
                 }
+                return null;
             });
-            try {
-                StreamUtils.copy(response.getBody(), outgoing.getOutputStream());
-            } catch (IOException exception) {
-                throw new UncheckedIOException(exception);
-            }
-            return null;
-        });
+        } catch (RestClientException | UncheckedIOException exception) {
+            log.warn("Panic backup proxy failed: method={}, path={}, durationMs={}",
+                incoming.getMethod(), incoming.getRequestURI(), (System.nanoTime() - started) / 1_000_000, exception);
+            throw exception;
+        }
     }
 
     @RequestMapping("/api/{service}/**")

@@ -48,6 +48,16 @@ public class UserPreferencesService {
         if (!profiles.isEmpty()) persist();
     }
 
+    /** Themes use this same monitor; replacement and both cache reloads must be one operation. */
+    public synchronized <T> T withStorageLock(StorageOperation<T> operation) throws IOException {
+        return operation.run();
+    }
+
+    @FunctionalInterface
+    public interface StorageOperation<T> {
+        T run() throws IOException;
+    }
+
     public synchronized List<UserProfileSummary> listUsers() {
         return profiles.values().stream()
             .map(profile -> new UserProfileSummary(profile.username()))

@@ -72,9 +72,13 @@ without modifying the backup code. The ZIP contains `.data/` and a versioned `at
 with SHA-256 checksums, preserving hidden files, binary assets, and empty directories. Links and special
 files are rejected. Only archives generated in this format can be restored.
 
-Pause downloads and finish edits before creating a backup; files changing during export cause the backup
-to fail so it can be retried. Downloads stream through the browser and gateway rather than buffering the
-archive in browser memory. For restore, select/drop the ZIP, wait for upload and verification, and review
+Pause downloads and finish edits before creating a backup. Export checks the entire file inventory before
+and after copying, rejecting detected additions, deletions, replacements, and changes. This is a best-effort
+filesystem snapshot, not a cross-service transaction; stop other writers for the strongest consistency.
+ZIP preparation does not hold the preferences lock. Downloads stream through the browser and gateway rather
+than buffering the archive in browser memory. Check browser Downloads for completion or transfer errors;
+**Download this ZIP again** retries the prepared archive without recreating it. For restore, select/drop the ZIP,
+wait for upload and verification, and review
 the creation date, file count, and included folders. **Stop YouTube, Series, and any other services that
 write data before confirming replacement**, keeping preferences-service and the UI/gateway running.
 Preferences reload immediately; restart the other services afterward and use **Reopen Atalaya**.
@@ -85,7 +89,13 @@ live files. It replaces the whole root, keeping the previous folder at `.data-be
 alongside `.data`. If replacement or preference loading fails, it rolls back. The retained directory is
 shown after success and can be used for manual recovery with services stopped; delete it when no longer
 needed. Ensure space for the uploaded archive, its expanded contents, and the retained previous data.
-Temporary download/restore sessions expire after one hour. Uploads default to 20 GB; adjust
+Temporary download/restore sessions expire after one hour of inactivity. Active transfers and restores are
+protected from expiry, and interrupted downloads remain available for retry. Only one export, verification,
+or restore runs at a time; competing requests receive HTTP 409 instead of waiting behind a long operation.
+Preferences and themes share one storage lock, held during replacement and cache reload. Cleanup failures
+are logged and retried without concealing the original error or reporting a committed restore as failed.
+An incomplete rollback preserves both recovery and staging folders for manual recovery.
+Uploads default to 20 GB; adjust
 `spring.servlet.multipart.max-file-size` and `max-request-size` for larger libraries. Expanded archives
 default to a 1 TiB limit (`toolbox.backup.max-expanded-bytes`) and 100,000 entries. Backups include all users'
 data, following the toolbox's existing trusted local/LAN profile model.
@@ -93,6 +103,10 @@ data, following the toolbox's existing trusted local/LAN profile model.
 The API creates a download with `POST /api/preferences/backups`, streams it with `GET /api/preferences/backups/{id}`,
 previews a multipart `file` upload with `POST /api/preferences/backups/restore/preview`, and commits that preview with
 `POST /api/preferences/backups/restore/{id}`. `DELETE /api/preferences/backups/restore/{id}` discards a preview.
+Preferences-service logs operation/session IDs, starts, periodic file/byte progress, durations, verification,
+streaming, cache reload, rollback, recovery locations, expiry, and cleanup failures. Gateway logs show
+request method/path, response status/bytes, duration, and interrupted transfers. Browser console messages use
+the `[panic-backup]` prefix. No file contents are logged.
 Run `npm test` in `music-library` for playback regression checks, and Maven tests in each backend for backup,
 restore, streaming, and playback policy validation.
 

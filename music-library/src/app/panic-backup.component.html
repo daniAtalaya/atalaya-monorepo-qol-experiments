@@ -1,10 +1,10 @@
 <div class="backup-triggers">
-  <button type="button" class="backup-trigger" (click)="open('backup')" [disabled]="busy()"
+  <button type="button" class="backup-trigger" (click)="open('backup')" [disabled]="busy() || !!result()"
     title="Download a panic backup of all Atalaya data">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M4 16v4h16v-4"/></svg>
     <span>Panic backup</span>
   </button>
-  <button type="button" class="restore-trigger" (click)="open('restore')" [disabled]="busy()"
+  <button type="button" class="restore-trigger" (click)="open('restore')" [disabled]="busy() || !!result()"
     aria-label="Restore an Atalaya backup" title="Restore a backup">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m-4 4 4-4 4 4M4 16v4h16v-4"/></svg>
   </button>
@@ -32,6 +32,9 @@
       <p class="backup-hint">For a consistent snapshot, pause downloads and finish any edits first. Store the ZIP somewhere outside this PC.</p>
       <button type="button" class="primary-button" [disabled]="busy()" (click)="createBackup()">
         {{ busy() ? 'Preparing your backup…' : download() ? 'Create another backup' : 'Download entire .data as ZIP' }}
+      </button>
+      <button type="button" class="primary-button" *ngIf="download()" [disabled]="busy()" (click)="downloadAgain()">
+        Download this ZIP again
       </button>
     </section>
 
